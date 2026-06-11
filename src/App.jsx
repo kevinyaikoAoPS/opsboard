@@ -293,7 +293,14 @@ function parseLogForAnalytics(text, instructor) {
 }
 
 function countByDateForAnalytics(text, instructor) {
-  const rows = getAnalyticsRows(text).filter(r => r.sender === instructor && r.message_type === "class");
+  const rows = getAnalyticsRows(text).filter(r => {
+    if (r.sender !== instructor || r.message_type !== "class") return false;
+    // Ignore messages before 7:29 PM (pre-class setup)
+    const h = parseInt(r.time.slice(0, 2), 10);
+    const min = parseInt(r.time.slice(3, 5), 10);
+    if (h < 19 || (h === 19 && min < 29)) return false;
+    return true;
+  });
   const counts = {};
   rows.forEach(r => { counts[r.date] = (counts[r.date] || 0) + 1; });
   return counts;
@@ -547,6 +554,7 @@ function ParserTab() {
   const [fileLoaded, setFileLoaded] = useState("");
   const [status, setStatus] = useState("");
   const [addedToShelf, setAddedToShelf] = useState(false);
+  const [stripMessages, setStripMessages] = useState(false);
 
   const handleFile = (file) => {
     const reader = new FileReader();
@@ -582,18 +590,22 @@ function ParserTab() {
   };
 
   const handleDownload = () => {
-    const csv = toCSV(rows);
+    const exportRows = stripMessages
+      ? rows.map(({ message, ...rest }) => ({ ...rest, message: "" }))
+      : rows;
+    const csv = toCSV(exportRows);
     const sender = rows[0]?.sender || "log";
-    const dates = [...new Set(rows.map(r => r.date))].sort();
+    const allDates = [...new Set(rows.map(r => r.date))].sort();
+    const suffix = stripMessages ? "_no_messages" : "";
     const uri = "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
     const a = document.createElement("a");
     a.href = uri;
-    a.download = `${sender}_${dates[0]}_to_${dates[dates.length-1]}.csv`;
+    a.download = `${sender}_${allDates[0]}_to_${allDates[allDates.length-1]}${suffix}.csv`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
   };
 
   const handleClear = () => {
-    setParsed(false); setInput(""); setRows([]); setFileLoaded(""); setStatus(""); setAddedToShelf(false);
+    setParsed(false); setInput(""); setRows([]); setFileLoaded(""); setStatus(""); setAddedToShelf(false); setStripMessages(false);
   };
 
   const dates = useMemo(() => [...new Set(rows.map(r => r.date))].sort(), [rows]);
@@ -656,7 +668,7 @@ function ParserTab() {
             <StatCard label="Images"   value={stats.imageOnly}      color={C.textMuted} />
           </div>
 
-          {/* Action row: shelf / download / clear */}
+          {/* Action row: shelf / download / strip toggle / clear */}
           <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
             <button onClick={handleAddToShelf} disabled={addedToShelf}
               style={{ padding: "7px 16px", background: addedToShelf ? C.accentDim : C.accent, color: addedToShelf ? C.accent : "#ffffff", border: `1px solid ${C.accent}`, borderRadius: 6, cursor: addedToShelf ? "default" : "pointer", fontSize: 12, fontWeight: 700, fontFamily: FONT_UI }}>
@@ -666,8 +678,12 @@ function ParserTab() {
               style={{ padding: "7px 16px", background: C.accent, color: "#ffffff", border: `1px solid ${C.accent}`, borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: FONT_UI }}>
               ⬇ Download CSV
             </button>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, color: C.textMuted, fontFamily: FONT_UI, padding: "7px 12px", border: `1px solid ${stripMessages ? C.accent : C.border}`, borderRadius: 6, background: stripMessages ? C.accentDim : "transparent", userSelect: "none" }}>
+              <input type="checkbox" checked={stripMessages} onChange={e => setStripMessages(e.target.checked)} style={{ accentColor: C.accent, width: 14, height: 14 }} />
+              <span style={{ color: stripMessages ? C.accent : C.textMuted, fontWeight: stripMessages ? 700 : 400 }}>Strip message content</span>
+            </label>
             <button onClick={handleClear}
-              style={{ padding: "7px 16px", background: "transparent", color: C.danger, border: `1px solid ${C.danger}44`, borderRadius: 6, cursor: "pointer", fontSize: 12, fontFamily: FONT_UI, marginLeft: "auto" }}>
+              style={{ padding: "7px 20px", background: C.danger, color: "#ffffff", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 700, fontFamily: FONT_UI, marginLeft: "auto" }}>
               ✕ Clear
             </button>
           </div>
