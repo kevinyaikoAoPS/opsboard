@@ -1154,6 +1154,519 @@ function MessageCounterTab({ onGoToParser }) {
   );
 }
 
+// ─── ASSISTANT SCORER TAB ─────────────────────────────────────────────────────
+
+const COURSE_TIERS = {"prealgebra1":"intro_math","prealgebra2":"intro_math","algebra-a":"intro_math","algebra-b":"intro_math","intro-geometry":"intro_math","intro-counting":"intro_math","intro-numbertheory":"intro_math","paradoxes-camp":"intro_math","intermediate-algebra":"interm_math","intermediate-counting":"interm_math","intermediate-numbertheory":"interm_math","precalc":"interm_math","mathcounts-basics":"interm_math","mathcounts-advanced":"interm_math","maa-amc10":"interm_math","maa-amc10-final-five":"interm_math","maa-amc12":"interm_math","maa-aimea":"interm_math","maa-aimeb":"interm_math","calculus":"adv_math","olympiad-geometry":"adv_math","grouptheory":"adv_math","fma":"woot","relativity-camp":"woot","intro-physics":"physics","physics1":"physics","python1":"cs","python2":"cs","cs-bronze":"cs"};
+
+const TIER_LABELS = { intro_math: "Intro Math", interm_math: "Interm. Math", adv_math: "Adv. Math", woot: "WOOT", physics: "Physics", cs: "CS" };
+
+const TIER_STATS = {"wps_p25":{"adv_math":1.344,"cs":0.743,"interm_math":1.0,"intro_math":1.212,"physics":1.401,"woot":1.145},"wps_p50":{"adv_math":1.725,"cs":1.0,"interm_math":1.412,"intro_math":1.885,"physics":1.96,"woot":1.5},"wps_p75":{"adv_math":2.152,"cs":1.398,"interm_math":2.083,"intro_math":2.705,"physics":2.445,"woot":2.302},"wpq_p25":{"adv_math":0.0586,"cs":0.033,"interm_math":0.0437,"intro_math":0.0414,"physics":0.0578,"woot":0.052},"wpq_p50":{"adv_math":0.0845,"cs":0.0505,"interm_math":0.0668,"intro_math":0.0638,"physics":0.0858,"woot":0.0734},"wpq_p75":{"adv_math":0.1352,"cs":0.0744,"interm_math":0.1047,"intro_math":0.0901,"physics":0.125,"woot":0.1111},"cov_p25":{"adv_math":0.5,"cs":0.358,"interm_math":0.452,"intro_math":0.535,"physics":0.562,"woot":0.479},"cov_p50":{"adv_math":0.585,"cs":0.455,"interm_math":0.58,"intro_math":0.682,"physics":0.647,"woot":0.617},"cov_p75":{"adv_math":0.72,"cs":0.59,"interm_math":0.714,"intro_math":0.789,"physics":0.752,"woot":0.791},"gap_p25":{"adv_math":46.5,"cs":55.0,"interm_math":34.5,"intro_math":30.375,"physics":43.375,"woot":44.0},"gap_p50":{"adv_math":64.0,"cs":82.25,"interm_math":48.0,"intro_math":44.0,"physics":57.75,"woot":69.5},"gap_p75":{"adv_math":90.0,"cs":107.625,"interm_math":72.0,"intro_math":65.5,"physics":78.625,"woot":94.625},"praise_p75":{"adv_math":0.0582,"cs":0.0,"interm_math":0.0526,"intro_math":0.0702,"physics":0.0936,"woot":0.0318},"praise_p90":{"adv_math":0.091,"cs":0.0664,"interm_math":0.1278,"intro_math":0.1466,"physics":0.2212,"woot":0.0861}};
+
+function scoreMetric(val, p25, p50, p75, invert = false) {
+  if (val == null || isNaN(val)) return 10;
+  if (invert) {
+    if (val <= p25) return 20;
+    if (val <= p50) return 20 - 5 * (val - p25) / (p50 - p25);
+    if (val <= p75) return 15 - 7 * (val - p50) / (p75 - p50);
+    return Math.max(0, 8 - 8 * (val - p75) / p75);
+  } else {
+    if (val >= p75) return 20;
+    if (val >= p50) return 20 - 5 * (p75 - val) / (p75 - p50);
+    if (val >= p25) return 15 - 7 * (p50 - val) / (p50 - p25);
+    return Math.max(0, 8 - 8 * (p25 - val) / p25);
+  }
+}
+
+function qualityScore(pctPraise, praise_p75, praise_p90, pctIdle, nChains) {
+  let score = 15;
+  // Praise multi-whisper penalty (up to 7.5 pts)
+  if (pctPraise > praise_p90) score -= 7.5;
+  else if (pctPraise > praise_p75) score -= 3.75 * (pctPraise - praise_p75) / (praise_p90 - praise_p75 + 1e-9);
+  // Idle chain penalty (up to 7.5 pts) — 1-2 chains worse than 3+
+  if (nChains > 0 && pctIdle > 0) {
+    const mult = nChains === 1 ? 1.0 : nChains === 2 ? 1.3 : 0.7;
+    score -= Math.min(7.5, 7.5 * pctIdle * mult * 3);
+  }
+  return Math.max(0, score);
+}
+
+function detectIdleChains(whispers) {
+  // whispers: [{timestamp (ms), char_count}] sorted by time, same sender/session
+  let nChains = 0, idleCount = 0;
+  const gaps = [];
+  for (let i = 1; i < whispers.length; i++) gaps.push(whispers[i].timestamp - whispers[i-1].timestamp);
+  const validGaps = gaps.filter(g => g > 0 && g < 7200000);
+  const sessionMedian = validGaps.length >= 3
+    ? [...validGaps].sort((a,b)=>a-b)[Math.floor(validGaps.length/2)] : null;
+
+  let i = 0;
+  while (i < whispers.length - 4) {
+    let j = i + 1;
+    while (j < whispers.length) {
+      const dt = (whispers[j].timestamp - whispers[j-1].timestamp) / 1000;
+      const dc = Math.abs(whispers[j].char_count - whispers[i].char_count);
+      if (dc <= 2 && dt >= 1 && dt <= 6) j++;
+      else break;
+    }
+    if (j - i >= 5) {
+      // Check if anomalously fast
+      const chainGaps = [];
+      for (let k = i+1; k < j; k++) chainGaps.push(whispers[k].timestamp - whispers[k-1].timestamp);
+      const avgChainGap = chainGaps.reduce((s,g)=>s+g,0)/chainGaps.length;
+      if (sessionMedian && avgChainGap < sessionMedian * 0.5) {
+        nChains++;
+        idleCount += (j - i);
+      }
+      i = j;
+    } else i++;
+  }
+  return { nChains, idleCount };
+}
+
+function scoreSession(whispers, numStudents, numQueued, courseId) {
+  const tier = COURSE_TIERS[courseId] || null;
+  const ts = tier ? TIER_STATS : null;
+
+  // Filter to whispers only
+  const ws = whispers.filter(r => r.message_type === "whisper" && r.is_image_only !== true && r.is_image_only !== "true");
+  if (!ws.length || !tier || !ts) return null;
+
+  const sorted = [...ws].sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp));
+  const nWhispers = sorted.length;
+  const uniqueRecipients = new Set(sorted.map(r => r.recipient)).size;
+  const wps = numStudents > 0 ? nWhispers / numStudents : 0;
+  const wpq = numQueued > 0 ? nWhispers / numQueued : 0;
+  const coverage = numStudents > 0 ? uniqueRecipients / numStudents : 0;
+
+  // Median gap
+  const tsorted = sorted.map(r => new Date(r.timestamp).getTime());
+  const gapsSec = [];
+  for (let i = 1; i < tsorted.length; i++) {
+    const g = (tsorted[i] - tsorted[i-1]) / 1000;
+    if (g > 0 && g < 7200) gapsSec.push(g);
+  }
+  const medianGap = gapsSec.length
+    ? [...gapsSec].sort((a,b)=>a-b)[Math.floor(gapsSec.length/2)] : 0;
+
+  // Multi-whisper / praise flags
+  const tsMap = {};
+  sorted.forEach(r => {
+    const key = `${r.timestamp}|${r.char_count}`;
+    tsMap[key] = (tsMap[key]||0) + 1;
+  });
+  let nPraiseMulti = 0;
+  sorted.forEach(r => {
+    const key = `${r.timestamp}|${r.char_count}`;
+    if (tsMap[key] > 1 && r.char_count <= 15) nPraiseMulti++;
+  });
+  const pctPraise = nWhispers > 0 ? nPraiseMulti / nWhispers : 0;
+
+  // Idle chain detection
+  const wsForChain = sorted.map(r => ({ timestamp: new Date(r.timestamp).getTime(), char_count: r.char_count }));
+  const { nChains, idleCount } = detectIdleChains(wsForChain);
+  const pctIdle = nWhispers > 0 ? idleCount / nWhispers : 0;
+
+  const t = TIER_STATS;
+  const sVol   = scoreMetric(wps, t.wps_p25[tier], t.wps_p50[tier], t.wps_p75[tier]);
+  const sQueue = scoreMetric(wpq, t.wpq_p25[tier], t.wpq_p50[tier], t.wpq_p75[tier]);
+  const sCov   = scoreMetric(coverage, t.cov_p25[tier], t.cov_p50[tier], t.cov_p75[tier]);
+  const sPace  = scoreMetric(medianGap, t.gap_p25[tier], t.gap_p50[tier], t.gap_p75[tier], true) * 1.25;
+  const sQual  = qualityScore(pctPraise, t.praise_p75[tier], t.praise_p90[tier], pctIdle, nChains);
+  const total  = sVol + sQueue + sCov + sPace + sQual;
+
+  return {
+    tier, tierLabel: TIER_LABELS[tier],
+    nWhispers, uniqueRecipients, numStudents, numQueued,
+    wps: +wps.toFixed(3), wpq: +wpq.toFixed(4), coverage: +coverage.toFixed(3),
+    medianGap: +medianGap.toFixed(1), pctPraise: +pctPraise.toFixed(3),
+    pctIdle: +pctIdle.toFixed(3), nChains,
+    scores: {
+      volume: +sVol.toFixed(1), queue: +sQueue.toFixed(1),
+      coverage: +sCov.toFixed(1), pacing: +sPace.toFixed(1),
+      quality: +sQual.toFixed(1), total: +total.toFixed(1),
+    }
+  };
+}
+
+function ScoreMeter({ label, value, max = 20, color }) {
+  const pct = Math.min(100, (value / max) * 100);
+  const barColor = value < max * 0.4 ? C.danger : value < max * 0.7 ? C.warn : color || C.accent;
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+        <span style={{ fontSize: 11, color: C.textMuted, fontFamily: FONT_UI }}>{label}</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: barColor, fontFamily: FONT }}>{value} <span style={{ color: C.textDim, fontWeight: 400 }}>/ {max}</span></span>
+      </div>
+      <div style={{ height: 6, background: C.surfaceAlt, borderRadius: 3, overflow: "hidden", border: `1px solid ${C.border}` }}>
+        <div style={{ height: "100%", width: `${pct}%`, background: barColor, borderRadius: 3, transition: "width 0.4s ease" }} />
+      </div>
+    </div>
+  );
+}
+
+function ScoreBadge({ score }) {
+  const color = score >= 80 ? C.accent : score >= 60 ? C.warn : C.danger;
+  const label = score >= 80 ? "Strong" : score >= 60 ? "Average" : "Flag";
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+      width: 80, height: 80, borderRadius: "50%", border: `3px solid ${color}`,
+      background: `${color}12`, flexShrink: 0 }}>
+      <span style={{ fontSize: 22, fontWeight: 700, color, fontFamily: FONT, lineHeight: 1 }}>{Math.round(score)}</span>
+      <span style={{ fontSize: 9, color, fontFamily: FONT_UI, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</span>
+    </div>
+  );
+}
+
+function SessionScoreCard({ result, sessionLabel }) {
+  const { scores, tier, tierLabel, nWhispers, uniqueRecipients, numStudents, numQueued,
+    wps, coverage, medianGap, pctPraise, pctIdle, nChains } = result;
+  const [expanded, setExpanded] = useState(false);
+
+  const flags = [];
+  if (scores.total < 50) flags.push({ text: "Low overall — recommend observation", color: C.danger });
+  if (scores.pacing < 10) flags.push({ text: "Long idle gaps detected", color: C.danger });
+  if (nChains >= 1) flags.push({ text: `${nChains} idle-whisper chain${nChains > 1 ? "s" : ""} detected`, color: C.warn });
+  if (scores.volume < 8) flags.push({ text: "Low whisper volume vs. peers", color: C.warn });
+  if (scores.coverage < 8) flags.push({ text: "Low student coverage", color: C.warn });
+  if (pctPraise > 0.12) flags.push({ text: `High praise blast rate (${(pctPraise*100).toFixed(0)}%)`, color: C.warn });
+
+  return (
+    <div style={{ ...sx.card, borderTop: `3px solid ${scores.total >= 80 ? C.accent : scores.total >= 60 ? C.warn : C.danger}`, marginBottom: 16 }}>
+      {/* Header row */}
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
+        <ScoreBadge score={scores.total} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: C.text, fontFamily: FONT_UI, marginBottom: 2 }}>{sessionLabel}</div>
+          <div style={{ fontSize: 11, color: C.textMuted, fontFamily: FONT_UI }}>
+            {tierLabel} &nbsp;·&nbsp; {nWhispers} whispers &nbsp;·&nbsp; {numStudents} students &nbsp;·&nbsp; {numQueued} queued
+          </div>
+          {flags.length > 0 && (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+              {flags.map((f, i) => (
+                <span key={i} style={{ fontSize: 10, background: `${f.color}18`, color: f.color, border: `1px solid ${f.color}44`,
+                  borderRadius: 10, padding: "2px 8px", fontFamily: FONT_UI, fontWeight: 600 }}>
+                  ⚠ {f.text}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+        <button onClick={() => setExpanded(e => !e)}
+          style={{ ...sx.btn(expanded), fontSize: 11, whiteSpace: "nowrap" }}>
+          {expanded ? "Hide details ▲" : "Details ▼"}
+        </button>
+      </div>
+
+      {/* Score bars */}
+      <ScoreMeter label="Volume (whispers/student)" value={scores.volume} max={20} />
+      <ScoreMeter label="Queue engagement (whispers/queued msg)" value={scores.queue} max={20} />
+      <ScoreMeter label="Coverage (students reached)" value={scores.coverage} max={20} />
+      <ScoreMeter label="Pacing (gap between whispers)" value={scores.pacing} max={25} />
+      <ScoreMeter label="Quality flags" value={scores.quality} max={15} />
+
+      {/* Expanded detail */}
+      {expanded && (
+        <div style={{ marginTop: 14, padding: "12px 14px", background: C.surfaceAlt, borderRadius: 8, border: `1px solid ${C.border}` }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8 }}>
+            {[
+              { label: "Tier", value: tierLabel },
+              { label: "Whispers / Student", value: wps },
+              { label: "Whispers / Queued", value: (result.wpq * 100).toFixed(2) + "%" },
+              { label: "Student Coverage", value: (coverage * 100).toFixed(0) + "%" },
+              { label: "Median Gap", value: medianGap + "s" },
+              { label: "Unique Recipients", value: `${uniqueRecipients} / ${numStudents}` },
+              { label: "Praise Blast %", value: (pctPraise * 100).toFixed(1) + "%", warn: pctPraise > 0.12 },
+              { label: "Idle Chains", value: nChains, warn: nChains >= 1 },
+              { label: "Idle Whisper %", value: (pctIdle * 100).toFixed(1) + "%", warn: pctIdle > 0.1 },
+            ].map(item => (
+              <div key={item.label} style={{ background: C.surface, borderRadius: 6, padding: "7px 10px", border: `1px solid ${C.border}` }}>
+                <div style={{ ...sx.label, marginBottom: 2 }}>{item.label}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: item.warn ? C.warn : C.text, fontFamily: FONT }}>{item.value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AssistantScorerTab() {
+  const [zoomText, setZoomText] = useState("");
+  const [whisperText, setWhisperText] = useState("");
+  const [zoomLoaded, setZoomLoaded] = useState("");
+  const [whisperLoaded, setWhisperLoaded] = useState("");
+  const [results, setResults] = useState(null);
+  const [error, setError] = useState("");
+  const [filterTier, setFilterTier] = useState("all");
+  const [sortBy, setSortBy] = useState("date");
+
+  const handleZoom = async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    setZoomText(await f.text()); setZoomLoaded(f.name); setResults(null); setError("");
+  };
+  const handleWhisper = async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    setWhisperText(await f.text()); setWhisperLoaded(f.name); setResults(null); setError("");
+  };
+
+  const handleScore = () => {
+    setError(""); setResults(null);
+    try {
+      // Parse zoom CSV
+      const zoomRows = parseCSV(zoomText).filter(r => r.lesson_date && r.class_id);
+      if (!zoomRows.length) { setError("Could not parse ZoomData CSV. Check the file format."); return; }
+
+      // Parse whisper CSV
+      const allRows = parseCSV(whisperText).filter(r => r.message_type && r.sender);
+      if (!allRows.length) { setError("Could not parse WhisperLog CSV. Check the file format."); return; }
+
+      // Expand multi-assistant sessions
+      const sessions = [];
+      for (const z of zoomRows) {
+        const assistants = (z.assistants || "").split(",").map(a => a.trim()).filter(Boolean);
+        for (const asst of assistants) {
+          sessions.push({ ...z, assistant: asst });
+        }
+      }
+
+      // Group whispers by assistant + date
+      const whispersByKey = {};
+      for (const r of allRows) {
+        if (r.message_type !== "whisper") continue;
+        const date = (r.timestamp || r.date || "").slice(0, 10);
+        const key = `${r.sender}|${date}`;
+        if (!whispersByKey[key]) whispersByKey[key] = [];
+        whispersByKey[key].push({ ...r, char_count: parseInt(r.char_count) || 0 });
+      }
+
+      // Score each session
+      const scoredSessions = [];
+      for (const s of sessions) {
+        const date = (s.lesson_date || "").slice(0, 10);
+        const key = `${s.assistant}|${date}`;
+        const whispers = whispersByKey[key] || [];
+        if (!whispers.length) continue;
+
+        const result = scoreSession(
+          whispers,
+          parseInt(s.num_students) || 0,
+          parseInt(s.num_queued) || 0,
+          s.course_id || ""
+        );
+        if (!result) continue;
+        scoredSessions.push({
+          assistant: s.assistant,
+          date,
+          courseId: s.course_id,
+          classId: s.class_id,
+          lesson: s.lesson,
+          result,
+        });
+      }
+
+      if (!scoredSessions.length) { setError("No matching sessions found. Make sure class_id and dates align between both files."); return; }
+
+      // Aggregate per assistant
+      const byAsst = {};
+      for (const s of scoredSessions) {
+        if (!byAsst[s.assistant]) byAsst[s.assistant] = { sessions: [], assistant: s.assistant };
+        byAsst[s.assistant].sessions.push(s);
+      }
+      const assistants = Object.values(byAsst).map(a => {
+        const scores = a.sessions.map(s => s.result.scores.total);
+        const avg = scores.reduce((x,y)=>x+y,0)/scores.length;
+        const minScore = Math.min(...scores);
+        return { ...a, avgScore: +avg.toFixed(1), minScore: +minScore.toFixed(1), sessionCount: a.sessions.length };
+      }).sort((a,b) => b.avgScore - a.avgScore);
+
+      setResults({ assistants, totalSessions: scoredSessions.length });
+    } catch(e) {
+      setError("Error processing files: " + e.message);
+    }
+  };
+
+  const allTiers = results
+    ? [...new Set(results.assistants.flatMap(a => a.sessions.map(s => s.result.tier)))]
+    : [];
+
+  const [activeAsst, setActiveAsst] = useState(null);
+
+  // Reset active when results change
+  useEffect(() => { if (results) setActiveAsst(results.assistants[0]?.assistant || null); }, [results]);
+
+  const activeData = results?.assistants.find(a => a.assistant === activeAsst);
+
+  const filteredSessions = useMemo(() => {
+    if (!activeData) return [];
+    let ss = [...activeData.sessions];
+    if (filterTier !== "all") ss = ss.filter(s => s.result.tier === filterTier);
+    if (sortBy === "date") ss.sort((a,b) => a.date.localeCompare(b.date));
+    else if (sortBy === "score_asc") ss.sort((a,b) => a.result.scores.total - b.result.scores.total);
+    else ss.sort((a,b) => b.result.scores.total - a.result.scores.total);
+    return ss;
+  }, [activeData, filterTier, sortBy]);
+
+  const uploadBox = (label, loaded, handler) => (
+    <label style={{ flex: "1 1 220px", display: "flex", alignItems: "center", gap: 10,
+      border: `2px dashed ${loaded ? C.accent : C.border}`, borderRadius: 8,
+      padding: "12px 16px", cursor: "pointer",
+      background: loaded ? C.accentDim : C.surfaceAlt, transition: "all 0.2s" }}>
+      <span style={{ fontSize: 20 }}>{loaded ? "✓" : "📂"}</span>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: loaded ? C.accent : C.textMuted, fontFamily: FONT_UI }}>{label}</div>
+        <div style={{ fontSize: 10, color: C.textDim, fontFamily: FONT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 180 }}>
+          {loaded || "Select CSV file"}
+        </div>
+      </div>
+      <input type="file" accept=".csv" onChange={handler} style={{ display: "none" }} />
+    </label>
+  );
+
+  return (
+    <div>
+      {/* Intro */}
+      <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 16, fontFamily: FONT_UI, lineHeight: 1.7 }}>
+        Upload a <strong style={{ color: C.text }}>ZoomData CSV</strong> (session info) and a <strong style={{ color: C.text }}>WhisperLog CSV</strong> to score assistant performance.
+        Scores are tier-adjusted across five dimensions: volume, queue engagement, coverage, pacing, and quality flags.
+      </p>
+
+      {/* Upload row */}
+      <div style={{ ...sx.card, marginBottom: 16 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: C.text, fontFamily: FONT_UI, marginBottom: 12 }}>Upload Files</div>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
+          {uploadBox("ZoomData CSV", zoomLoaded, handleZoom)}
+          {uploadBox("WhisperLog CSV", whisperLoaded, handleWhisper)}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button onClick={handleScore} disabled={!zoomText || !whisperText}
+            style={{ padding: "9px 24px", background: C.accent, color: "#ffffff", border: "none",
+              borderRadius: 7, cursor: zoomText && whisperText ? "pointer" : "not-allowed",
+              fontSize: 13, fontWeight: 700, fontFamily: FONT_UI,
+              opacity: zoomText && whisperText ? 1 : 0.4 }}>
+            Score Sessions →
+          </button>
+          {results && (
+            <span style={{ fontSize: 12, color: C.accent, fontWeight: 700, fontFamily: FONT_UI }}>
+              ✓ {results.totalSessions} sessions scored across {results.assistants.length} assistants
+            </span>
+          )}
+          {error && <span style={{ fontSize: 12, color: C.danger, fontFamily: FONT_UI }}>⚠ {error}</span>}
+        </div>
+      </div>
+
+      {results && (
+        <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
+
+          {/* Left: assistant roster */}
+          <div style={{ ...sx.card, width: 220, flexShrink: 0, padding: 0, overflow: "hidden" }}>
+            <div style={{ padding: "10px 14px", background: C.navy, borderBottom: `1px solid ${C.navyDark}` }}>
+              <span style={{ fontFamily: FONT_UI, fontWeight: 700, color: "#ffffff", fontSize: 12 }}>Assistants</span>
+            </div>
+            <div style={{ overflowY: "auto", maxHeight: 560 }}>
+              {results.assistants.map(a => {
+                const color = a.avgScore >= 80 ? C.accent : a.avgScore >= 60 ? C.warn : C.danger;
+                const isActive = a.assistant === activeAsst;
+                return (
+                  <button key={a.assistant} onClick={() => setActiveAsst(a.assistant)}
+                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%",
+                      padding: "9px 14px", border: "none", borderBottom: `1px solid ${C.border}`,
+                      background: isActive ? C.accentDim : "transparent",
+                      cursor: "pointer", textAlign: "left",
+                      borderLeft: isActive ? `3px solid ${C.accent}` : "3px solid transparent" }}>
+                    <div style={{ width: 32, height: 32, borderRadius: "50%", background: `${color}18`,
+                      border: `2px solid ${color}`, display: "flex", alignItems: "center", justifyContent: "center",
+                      flexShrink: 0 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color, fontFamily: FONT }}>{Math.round(a.avgScore)}</span>
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: isActive ? C.accent : C.text,
+                        fontFamily: FONT_UI, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 130 }}>
+                        {a.assistant}
+                      </div>
+                      <div style={{ fontSize: 10, color: C.textMuted, fontFamily: FONT_UI }}>
+                        {a.sessionCount} session{a.sessionCount !== 1 ? "s" : ""}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Right: detail pane */}
+          {activeData && (
+            <div style={{ flex: "1 1 400px", minWidth: 0 }}>
+              {/* Assistant header */}
+              <div style={{ ...sx.card, marginBottom: 14, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+                <ScoreBadge score={activeData.avgScore} />
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: C.text, fontFamily: FONT_UI }}>{activeData.assistant}</div>
+                  <div style={{ fontSize: 11, color: C.textMuted, fontFamily: FONT_UI, marginTop: 2 }}>
+                    {activeData.sessionCount} sessions &nbsp;·&nbsp; avg score {activeData.avgScore} &nbsp;·&nbsp; low {activeData.minScore}
+                  </div>
+                  {activeData.avgScore < 55 && (
+                    <div style={{ marginTop: 6, fontSize: 11, color: C.danger, fontWeight: 700, fontFamily: FONT_UI }}>
+                      ⚑ Recommend live observation
+                    </div>
+                  )}
+                </div>
+                {/* Mini dimension averages */}
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginLeft: "auto" }}>
+                  {["volume","queue","coverage","pacing","quality"].map(dim => {
+                    const vals = activeData.sessions.map(s => s.result.scores[dim]);
+                    const avg = vals.reduce((a,b)=>a+b,0)/vals.length;
+                    const max = dim === "pacing" ? 25 : dim === "quality" ? 15 : 20;
+                    const color = avg < max * 0.4 ? C.danger : avg < max * 0.7 ? C.warn : C.accent;
+                    return (
+                      <div key={dim} style={{ textAlign: "center", background: C.surfaceAlt,
+                        borderRadius: 6, padding: "5px 10px", border: `1px solid ${C.border}`, borderTop: `2px solid ${color}` }}>
+                        <div style={{ ...sx.label, marginBottom: 1 }}>{dim}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color, fontFamily: FONT }}>{avg.toFixed(1)}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Filter / sort bar */}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
+                <span style={{ fontSize: 11, color: C.textMuted, fontFamily: FONT_UI }}>Filter:</span>
+                <button onClick={() => setFilterTier("all")} style={sx.btn(filterTier === "all")}>All tiers</button>
+                {allTiers.map(t => (
+                  <button key={t} onClick={() => setFilterTier(t)} style={sx.btn(filterTier === t)}>
+                    {TIER_LABELS[t] || t}
+                  </button>
+                ))}
+                <span style={{ fontSize: 11, color: C.textMuted, fontFamily: FONT_UI, marginLeft: 8 }}>Sort:</span>
+                <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+                  style={{ padding: "4px 8px", borderRadius: 5, border: `1px solid ${C.border}`,
+                    fontSize: 11, fontFamily: FONT_UI, background: C.surface, color: C.text, cursor: "pointer" }}>
+                  <option value="date">By date</option>
+                  <option value="score_asc">Score ↑</option>
+                  <option value="score_desc">Score ↓</option>
+                </select>
+                <span style={{ fontSize: 11, color: C.textMuted, marginLeft: "auto", fontFamily: FONT_UI }}>
+                  {filteredSessions.length} session{filteredSessions.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+
+              {/* Session cards */}
+              {filteredSessions.map((s, i) => (
+                <SessionScoreCard
+                  key={`${s.date}-${i}`}
+                  result={s.result}
+                  sessionLabel={`${s.date} · ${s.courseId} · Class ${s.classId}${s.lesson ? ` · Lesson ${s.lesson}` : ""}`}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── ROOT APP ─────────────────────────────────────────────────────────────────
 
 const TABS = [
@@ -1161,6 +1674,7 @@ const TABS = [
   { id: "gap",     label: "📊 Gap Analyzer" },
   { id: "session", label: "🗓 Session Analyzer" },
   { id: "counter", label: "🔢 Message Counter" },
+  { id: "scorer",  label: "⭐ Asst. Scorer" },
 ];
 
 // Empty state shown in analysis tabs when no data is loaded
@@ -1237,6 +1751,7 @@ export default function App() {
           {tab === "gap"     && <GapAnalyzerTab     onGoToParser={goToParser} />}
           {tab === "session" && <SessionAnalyzerTab onGoToParser={goToParser} />}
           {tab === "counter" && <MessageCounterTab  onGoToParser={goToParser} />}
+          {tab === "scorer"  && <AssistantScorerTab />}
         </div>
       </div>
     </ShelfContext.Provider>
