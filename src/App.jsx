@@ -1160,20 +1160,21 @@ const COURSE_TIERS = {"prealgebra1":"intro_math","prealgebra2":"intro_math","alg
 
 const TIER_LABELS = { intro_math: "Intro Math", interm_math: "Interm. Math", adv_math: "Adv. Math", woot: "WOOT", physics: "Physics", cs: "CS" };
 
-const TIER_STATS = {"wps_p25":{"adv_math":1.344,"cs":0.743,"interm_math":1.0,"intro_math":1.212,"physics":1.401,"woot":1.145},"wps_p50":{"adv_math":1.725,"cs":1.0,"interm_math":1.412,"intro_math":1.885,"physics":1.96,"woot":1.5},"wps_p75":{"adv_math":2.152,"cs":1.398,"interm_math":2.083,"intro_math":2.705,"physics":2.445,"woot":2.302},"wpq_p25":{"adv_math":0.0586,"cs":0.033,"interm_math":0.0437,"intro_math":0.0414,"physics":0.0578,"woot":0.052},"wpq_p50":{"adv_math":0.0845,"cs":0.0505,"interm_math":0.0668,"intro_math":0.0638,"physics":0.0858,"woot":0.0734},"wpq_p75":{"adv_math":0.1352,"cs":0.0744,"interm_math":0.1047,"intro_math":0.0901,"physics":0.125,"woot":0.1111},"cov_p25":{"adv_math":0.5,"cs":0.358,"interm_math":0.452,"intro_math":0.535,"physics":0.562,"woot":0.479},"cov_p50":{"adv_math":0.585,"cs":0.455,"interm_math":0.58,"intro_math":0.682,"physics":0.647,"woot":0.617},"cov_p75":{"adv_math":0.72,"cs":0.59,"interm_math":0.714,"intro_math":0.789,"physics":0.752,"woot":0.791},"gap_p25":{"adv_math":46.5,"cs":55.0,"interm_math":34.5,"intro_math":30.375,"physics":43.375,"woot":44.0},"gap_p50":{"adv_math":64.0,"cs":82.25,"interm_math":48.0,"intro_math":44.0,"physics":57.75,"woot":69.5},"gap_p75":{"adv_math":90.0,"cs":107.625,"interm_math":72.0,"intro_math":65.5,"physics":78.625,"woot":94.625},"praise_p75":{"adv_math":0.0582,"cs":0.0,"interm_math":0.0526,"intro_math":0.0702,"physics":0.0936,"woot":0.0318},"praise_p90":{"adv_math":0.091,"cs":0.0664,"interm_math":0.1278,"intro_math":0.1466,"physics":0.2212,"woot":0.0861}};
+const TIER_STATS = {"wps_p25":{"adv_math":1.344,"cs":0.743,"interm_math":1.0,"intro_math":1.212,"physics":1.401,"woot":1.145},"wps_p50":{"adv_math":1.725,"cs":1.0,"interm_math":1.412,"intro_math":1.885,"physics":1.96,"woot":1.5},"wps_p75":{"adv_math":2.152,"cs":1.398,"interm_math":2.083,"intro_math":2.705,"physics":2.445,"woot":2.302},"wpq_p25":{"adv_math":0.0586,"cs":0.033,"interm_math":0.0437,"intro_math":0.0414,"physics":0.0578,"woot":0.052},"wpq_p50":{"adv_math":0.0845,"cs":0.0505,"interm_math":0.0668,"intro_math":0.0638,"physics":0.0858,"woot":0.0734},"wpq_p75":{"adv_math":0.1352,"cs":0.0744,"interm_math":0.1047,"intro_math":0.0901,"physics":0.125,"woot":0.1111},"cov1_p25":{"adv_math":0.5,"cs":0.3582,"interm_math":0.4516,"intro_math":0.5354,"physics":0.5619,"woot":0.4787},"cov1_p50":{"adv_math":0.5849,"cs":0.4545,"interm_math":0.5797,"intro_math":0.6818,"physics":0.6472,"woot":0.6165},"cov1_p75":{"adv_math":0.7205,"cs":0.5901,"interm_math":0.7143,"intro_math":0.7887,"physics":0.7517,"woot":0.7907},"cov2_p25":{"adv_math":0.3077,"cs":0.1698,"interm_math":0.2333,"intro_math":0.2893,"physics":0.3333,"woot":0.2537},"cov2_p50":{"adv_math":0.381,"cs":0.2321,"interm_math":0.3455,"intro_math":0.4302,"physics":0.4249,"woot":0.3418},"cov2_p75":{"adv_math":0.4753,"cs":0.3282,"interm_math":0.4615,"intro_math":0.5656,"physics":0.5374,"woot":0.4615},"gap_p25":{"adv_math":46.5,"cs":55.0,"interm_math":34.5,"intro_math":30.375,"physics":43.375,"woot":44.0},"gap_p50":{"adv_math":64.0,"cs":82.25,"interm_math":48.0,"intro_math":44.0,"physics":57.75,"woot":69.5},"gap_p75":{"adv_math":90.0,"cs":107.625,"interm_math":72.0,"intro_math":65.5,"physics":78.625,"woot":94.625},"praise_p75":{"adv_math":0.0582,"cs":0.0,"interm_math":0.0526,"intro_math":0.0702,"physics":0.0936,"woot":0.0318},"praise_p90":{"adv_math":0.091,"cs":0.0664,"interm_math":0.1278,"intro_math":0.1466,"physics":0.2212,"woot":0.0861}};
 
-function scoreMetric(val, p25, p50, p75, invert = false) {
-  if (val == null || isNaN(val)) return 10;
+function scoreMetric(val, p25, p50, p75, invert = false, maxPts = 20) {
+  if (val == null || isNaN(val)) return maxPts * 0.5;
+  const full = maxPts, hi = maxPts * 0.75, mid = maxPts * 0.4;
   if (invert) {
-    if (val <= p25) return 20;
-    if (val <= p50) return 20 - 5 * (val - p25) / (p50 - p25);
-    if (val <= p75) return 15 - 7 * (val - p50) / (p75 - p50);
-    return Math.max(0, 8 - 8 * (val - p75) / p75);
+    if (val <= p25) return full;
+    if (val <= p50) return full - (maxPts*0.25) * (val-p25)/(p50-p25);
+    if (val <= p75) return hi - (maxPts*0.35) * (val-p50)/(p75-p50);
+    return Math.max(0, mid - mid * (val-p75)/p75);
   } else {
-    if (val >= p75) return 20;
-    if (val >= p50) return 20 - 5 * (p75 - val) / (p75 - p50);
-    if (val >= p25) return 15 - 7 * (p50 - val) / (p50 - p25);
-    return Math.max(0, 8 - 8 * (p25 - val) / p25);
+    if (val >= p75) return full;
+    if (val >= p50) return full - (maxPts*0.25) * (p75-val)/(p75-p50);
+    if (val >= p25) return hi - (maxPts*0.35) * (p50-val)/(p50-p25);
+    return Math.max(0, mid - mid * (p25-val)/p25);
   }
 }
 
@@ -1233,10 +1234,17 @@ function scoreSession(whispers, numStudents, numQueued, courseId) {
 
   const sorted = [...ws].sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp));
   const nWhispers = sorted.length;
-  const uniqueRecipients = new Set(sorted.map(r => r.recipient)).size;
+  // Coverage split: 1+ and 2+
+  const recipientCounts = {};
+  sorted.forEach(r => { recipientCounts[r.recipient] = (recipientCounts[r.recipient] || 0) + 1; });
+  const n1plus = Object.values(recipientCounts).filter(c => c >= 1).length;
+  const n2plus = Object.values(recipientCounts).filter(c => c >= 2).length;
+  const coverage1plus = numStudents > 0 ? n1plus / numStudents : 0;
+  const coverage2plus = numStudents > 0 ? n2plus / numStudents : 0;
+
+  const uniqueRecipients = n1plus;
   const wps = numStudents > 0 ? nWhispers / numStudents : 0;
   const wpq = numQueued > 0 ? nWhispers / numQueued : 0;
-  const coverage = numStudents > 0 ? uniqueRecipients / numStudents : 0;
 
   // Median gap
   const tsorted = sorted.map(r => new Date(r.timestamp).getTime());
@@ -1269,21 +1277,24 @@ function scoreSession(whispers, numStudents, numQueued, courseId) {
   const t = TIER_STATS;
   const sVol   = scoreMetric(wps, t.wps_p25[tier], t.wps_p50[tier], t.wps_p75[tier]);
   const sQueue = scoreMetric(wpq, t.wpq_p25[tier], t.wpq_p50[tier], t.wpq_p75[tier]);
-  const sCov   = scoreMetric(coverage, t.cov_p25[tier], t.cov_p50[tier], t.cov_p75[tier]);
+  const sCov1  = scoreMetric(coverage1plus, t.cov1_p25[tier], t.cov1_p50[tier], t.cov1_p75[tier], false, 10);
+  const sCov2  = scoreMetric(coverage2plus, t.cov2_p25[tier], t.cov2_p50[tier], t.cov2_p75[tier], false, 10);
   const sPace  = scoreMetric(medianGap, t.gap_p25[tier], t.gap_p50[tier], t.gap_p75[tier], true) * 1.25;
   const sQual  = qualityScore(pctPraise, t.praise_p75[tier], t.praise_p90[tier], pctIdle, nChains);
-  const total  = sVol + sQueue + sCov + sPace + sQual;
+  const total  = sVol + sQueue + sCov1 + sCov2 + sPace + sQual;
 
   return {
     tier, tierLabel: TIER_LABELS[tier],
     nWhispers, uniqueRecipients, numStudents, numQueued,
-    wps: +wps.toFixed(3), wpq: +wpq.toFixed(4), coverage: +coverage.toFixed(3),
+    wps: +wps.toFixed(3), wpq: +wpq.toFixed(4),
+    coverage1plus: +coverage1plus.toFixed(3), coverage2plus: +coverage2plus.toFixed(3),
     medianGap: +medianGap.toFixed(1), pctPraise: +pctPraise.toFixed(3),
     pctIdle: +pctIdle.toFixed(3), nChains,
     scores: {
       volume: +sVol.toFixed(1), queue: +sQueue.toFixed(1),
-      coverage: +sCov.toFixed(1), pacing: +sPace.toFixed(1),
-      quality: +sQual.toFixed(1), total: +total.toFixed(1),
+      cov1: +sCov1.toFixed(1), cov2: +sCov2.toFixed(1),
+      pacing: +sPace.toFixed(1), quality: +sQual.toFixed(1),
+      total: +total.toFixed(1),
     }
   };
 }
@@ -1319,7 +1330,7 @@ function ScoreBadge({ score }) {
 
 function SessionScoreCard({ result, sessionLabel }) {
   const { scores, tier, tierLabel, nWhispers, uniqueRecipients, numStudents, numQueued,
-    wps, coverage, medianGap, pctPraise, pctIdle, nChains } = result;
+    wps, coverage1plus, coverage2plus, medianGap, pctPraise, pctIdle, nChains } = result;
   const [expanded, setExpanded] = useState(false);
 
   const flags = [];
@@ -1327,7 +1338,8 @@ function SessionScoreCard({ result, sessionLabel }) {
   if (scores.pacing < 10) flags.push({ text: "Long idle gaps detected", color: C.danger });
   if (nChains >= 1) flags.push({ text: `${nChains} idle-whisper chain${nChains > 1 ? "s" : ""} detected`, color: C.warn });
   if (scores.volume < 8) flags.push({ text: "Low whisper volume vs. peers", color: C.warn });
-  if (scores.coverage < 8) flags.push({ text: "Low student coverage", color: C.warn });
+  if (scores.cov1 < 4) flags.push({ text: "Low broad coverage", color: C.warn });
+  if (scores.cov2 < 4) flags.push({ text: "Low deep coverage — few return visits", color: C.warn });
   if (pctPraise > 0.12) flags.push({ text: `High praise blast rate (${(pctPraise*100).toFixed(0)}%)`, color: C.warn });
 
   return (
@@ -1359,8 +1371,9 @@ function SessionScoreCard({ result, sessionLabel }) {
 
       {/* Score bars */}
       <ScoreMeter label="Volume (whispers/student)" value={scores.volume} max={20} />
-      <ScoreMeter label="Queue engagement (whispers/queued msg)" value={scores.queue} max={20} />
-      <ScoreMeter label="Coverage (students reached)" value={scores.coverage} max={20} />
+      <ScoreMeter label="Queue engagement (whispers per 100 queued)" value={scores.queue} max={20} />
+      <ScoreMeter label="Broad coverage (students reached 1+ times)" value={scores.cov1} max={10} />
+      <ScoreMeter label="Deep coverage (students reached 2+ times)" value={scores.cov2} max={10} />
       <ScoreMeter label="Pacing (gap between whispers)" value={scores.pacing} max={25} />
       <ScoreMeter label="Quality flags" value={scores.quality} max={15} />
 
@@ -1371,8 +1384,9 @@ function SessionScoreCard({ result, sessionLabel }) {
             {[
               { label: "Tier", value: tierLabel },
               { label: "Whispers / Student", value: wps },
-              { label: "Whispers / Queued", value: (result.wpq * 100).toFixed(2) + "%" },
-              { label: "Student Coverage", value: (coverage * 100).toFixed(0) + "%" },
+              { label: "Whispers / 100 Queued", value: (result.wpq * 100).toFixed(2) },
+              { label: "Broad Coverage (1+)", value: (result.coverage1plus * 100).toFixed(0) + "%" },
+              { label: "Deep Coverage (2+)", value: (result.coverage2plus * 100).toFixed(0) + "%" },
               { label: "Median Gap", value: medianGap + "s" },
               { label: "Unique Recipients", value: `${uniqueRecipients} / ${numStudents}` },
               { label: "Praise Blast %", value: (pctPraise * 100).toFixed(1) + "%", warn: pctPraise > 0.12 },
@@ -1391,46 +1405,79 @@ function SessionScoreCard({ result, sessionLabel }) {
   );
 }
 
-function AssistantScorerTab() {
-  const [zoomText, setZoomText] = useState("");
-  const [whisperText, setWhisperText] = useState("");
-  const [zoomLoaded, setZoomLoaded] = useState("");
-  const [whisperLoaded, setWhisperLoaded] = useState("");
-  const [results, setResults] = useState(null);
-  const [error, setError] = useState("");
-  const [filterTier, setFilterTier] = useState("all");
-  const [sortBy, setSortBy] = useState("date");
+function AssistantQualityTab() {
+  const { shelf } = useShelf();
+  const [zoomText, setZoomText]       = useState("");
+  const [zoomLoaded, setZoomLoaded]   = useState("");
+  // whisper sources: array of { text, name }
+  const [whisperSources, setWhisperSources] = useState([]);
+  const [results, setResults]         = useState(null);
+  const [warnings, setWarnings]       = useState([]);
+  const [error, setError]             = useState("");
+  const [filterTier, setFilterTier]   = useState("all");
+  const [sortBy, setSortBy]           = useState("date");
+  const [activeAsst, setActiveAsst]   = useState(null);
+  const [whisperMode, setWhisperMode] = useState(shelf.length > 0 ? "shelf" : "upload");
+
+  // Reset active assistant when results change
+  useEffect(() => {
+    if (results) setActiveAsst(results.assistants[0]?.assistant || null);
+  }, [results]);
 
   const handleZoom = async (e) => {
     const f = e.target.files[0]; if (!f) return;
     setZoomText(await f.text()); setZoomLoaded(f.name); setResults(null); setError("");
   };
-  const handleWhisper = async (e) => {
-    const f = e.target.files[0]; if (!f) return;
-    setWhisperText(await f.text()); setWhisperLoaded(f.name); setResults(null); setError("");
+
+  const handleWhisperUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    const sources = await Promise.all(files.map(async f => ({ text: await f.text(), name: f.name })));
+    setWhisperSources(sources); setResults(null); setError("");
+  };
+
+  const handleShelfPick = (item) => {
+    const text = toCSV(item.rows);
+    setWhisperSources(prev => {
+      // Toggle: if already in list, remove; else add
+      const exists = prev.find(s => s.name === item.label);
+      if (exists) return prev.filter(s => s.name !== item.label);
+      return [...prev, { text, name: item.label }];
+    });
+    setResults(null); setError("");
   };
 
   const handleScore = () => {
-    setError(""); setResults(null);
+    setError(""); setWarnings([]); setResults(null);
     try {
       // Parse zoom CSV
       const zoomRows = parseCSV(zoomText).filter(r => r.lesson_date && r.class_id);
       if (!zoomRows.length) { setError("Could not parse ZoomData CSV. Check the file format."); return; }
+      if (!whisperSources.length) { setError("No whisper log files loaded."); return; }
 
-      // Parse whisper CSV
-      const allRows = parseCSV(whisperText).filter(r => r.message_type && r.sender);
-      if (!allRows.length) { setError("Could not parse WhisperLog CSV. Check the file format."); return; }
+      // Parse and combine all whisper log sources
+      const allRows = [];
+      for (const src of whisperSources) {
+        const rows = parseCSV(src.text).filter(r => r.message_type && r.sender);
+        allRows.push(...rows);
+      }
+      if (!allRows.length) { setError("Could not parse any whisper rows. Check the file format."); return; }
 
-      // Expand multi-assistant sessions
+      // Username mismatch check
+      const senders = [...new Set(allRows.filter(r => r.message_type === "whisper").map(r => r.sender))];
+      const warn = [];
+      if (senders.length > 2) {
+        warn.push(`Whisper logs contain ${senders.length} different senders: ${senders.join(", ")}. Each will be scored separately if matched in ZoomData.`);
+      }
+
+      // Expand multi-assistant zoom sessions
       const sessions = [];
       for (const z of zoomRows) {
         const assistants = (z.assistants || "").split(",").map(a => a.trim()).filter(Boolean);
-        for (const asst of assistants) {
-          sessions.push({ ...z, assistant: asst });
-        }
+        for (const asst of assistants) sessions.push({ ...z, assistant: asst });
       }
 
-      // Group whispers by assistant + date
+      // Group whispers by sender + date
       const whispersByKey = {};
       for (const r of allRows) {
         if (r.message_type !== "whisper") continue;
@@ -1440,32 +1487,27 @@ function AssistantScorerTab() {
         whispersByKey[key].push({ ...r, char_count: parseInt(r.char_count) || 0 });
       }
 
-      // Score each session
+      // Score each matching session
       const scoredSessions = [];
       for (const s of sessions) {
         const date = (s.lesson_date || "").slice(0, 10);
         const key = `${s.assistant}|${date}`;
         const whispers = whispersByKey[key] || [];
         if (!whispers.length) continue;
-
-        const result = scoreSession(
-          whispers,
-          parseInt(s.num_students) || 0,
-          parseInt(s.num_queued) || 0,
-          s.course_id || ""
-        );
+        const result = scoreSession(whispers, parseInt(s.num_students) || 0, parseInt(s.num_queued) || 0, s.course_id || "");
         if (!result) continue;
-        scoredSessions.push({
-          assistant: s.assistant,
-          date,
-          courseId: s.course_id,
-          classId: s.class_id,
-          lesson: s.lesson,
-          result,
-        });
+        scoredSessions.push({ assistant: s.assistant, date, courseId: s.course_id, classId: s.class_id, lesson: s.lesson, result });
       }
 
-      if (!scoredSessions.length) { setError("No matching sessions found. Make sure class_id and dates align between both files."); return; }
+      if (!scoredSessions.length) {
+        setError("No matching sessions found. Make sure assistant names and dates align between the ZoomData and whisper log files.");
+        return;
+      }
+
+      // Warn about senders in whisper logs not found in ZoomData
+      const matchedAssistants = new Set(scoredSessions.map(s => s.assistant));
+      const unmatched = senders.filter(s => !matchedAssistants.has(s));
+      if (unmatched.length) warn.push(`Sender(s) in whisper logs not found in ZoomData: ${unmatched.join(", ")}`);
 
       // Aggregate per assistant
       const byAsst = {};
@@ -1474,12 +1516,16 @@ function AssistantScorerTab() {
         byAsst[s.assistant].sessions.push(s);
       }
       const assistants = Object.values(byAsst).map(a => {
-        const scores = a.sessions.map(s => s.result.scores.total);
-        const avg = scores.reduce((x,y)=>x+y,0)/scores.length;
-        const minScore = Math.min(...scores);
-        return { ...a, avgScore: +avg.toFixed(1), minScore: +minScore.toFixed(1), sessionCount: a.sessions.length };
+        const totals = a.sessions.map(s => s.result.scores.total);
+        return {
+          ...a,
+          avgScore: +(totals.reduce((x,y)=>x+y,0)/totals.length).toFixed(1),
+          minScore: +Math.min(...totals).toFixed(1),
+          sessionCount: a.sessions.length,
+        };
       }).sort((a,b) => b.avgScore - a.avgScore);
 
+      setWarnings(warn);
       setResults({ assistants, totalSessions: scoredSessions.length });
     } catch(e) {
       setError("Error processing files: " + e.message);
@@ -1489,11 +1535,6 @@ function AssistantScorerTab() {
   const allTiers = results
     ? [...new Set(results.assistants.flatMap(a => a.sessions.map(s => s.result.tier)))]
     : [];
-
-  const [activeAsst, setActiveAsst] = useState(null);
-
-  // Reset active when results change
-  useEffect(() => { if (results) setActiveAsst(results.assistants[0]?.assistant || null); }, [results]);
 
   const activeData = results?.assistants.find(a => a.assistant === activeAsst);
 
@@ -1507,54 +1548,118 @@ function AssistantScorerTab() {
     return ss;
   }, [activeData, filterTier, sortBy]);
 
-  const uploadBox = (label, loaded, handler) => (
-    <label style={{ flex: "1 1 220px", display: "flex", alignItems: "center", gap: 10,
-      border: `2px dashed ${loaded ? C.accent : C.border}`, borderRadius: 8,
-      padding: "12px 16px", cursor: "pointer",
-      background: loaded ? C.accentDim : C.surfaceAlt, transition: "all 0.2s" }}>
-      <span style={{ fontSize: 20 }}>{loaded ? "✓" : "📂"}</span>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: loaded ? C.accent : C.textMuted, fontFamily: FONT_UI }}>{label}</div>
-        <div style={{ fontSize: 10, color: C.textDim, fontFamily: FONT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 180 }}>
-          {loaded || "Select CSV file"}
-        </div>
-      </div>
-      <input type="file" accept=".csv" onChange={handler} style={{ display: "none" }} />
-    </label>
-  );
+  const ready = zoomText && whisperSources.length > 0;
 
   return (
     <div>
-      {/* Intro */}
       <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 16, fontFamily: FONT_UI, lineHeight: 1.7 }}>
-        Upload a <strong style={{ color: C.text }}>ZoomData CSV</strong> (session info) and a <strong style={{ color: C.text }}>WhisperLog CSV</strong> to score assistant performance.
-        Scores are tier-adjusted across five dimensions: volume, queue engagement, coverage, pacing, and quality flags.
+        Load a <strong style={{ color: C.text }}>ZoomData CSV</strong> and one or more <strong style={{ color: C.text }}>WhisperLog files</strong> to score assistant performance across sessions.
+        Scores are tier-adjusted across six dimensions: volume, queue engagement, broad coverage, deep coverage, pacing, and quality flags.
       </p>
 
-      {/* Upload row */}
+      {/* ── File loading card ── */}
       <div style={{ ...sx.card, marginBottom: 16 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: C.text, fontFamily: FONT_UI, marginBottom: 12 }}>Upload Files</div>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
-          {uploadBox("ZoomData CSV", zoomLoaded, handleZoom)}
-          {uploadBox("WhisperLog CSV", whisperLoaded, handleWhisper)}
+        <div style={{ fontSize: 12, fontWeight: 700, color: C.text, fontFamily: FONT_UI, marginBottom: 12 }}>Load Files</div>
+
+        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-start" }}>
+          {/* ZoomData upload */}
+          <div style={{ flex: "1 1 200px" }}>
+            <div style={{ ...sx.label, marginBottom: 6 }}>ZoomData CSV</div>
+            <label style={{ display: "flex", alignItems: "center", gap: 10,
+              border: `2px dashed ${zoomLoaded ? C.accent : C.border}`, borderRadius: 8,
+              padding: "10px 14px", cursor: "pointer",
+              background: zoomLoaded ? C.accentDim : C.surfaceAlt }}>
+              <span style={{ fontSize: 18 }}>{zoomLoaded ? "✓" : "📂"}</span>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: zoomLoaded ? C.accent : C.textMuted, fontFamily: FONT_UI }}>
+                  {zoomLoaded || "Select CSV file"}
+                </div>
+              </div>
+              <input type="file" accept=".csv" onChange={handleZoom} style={{ display: "none" }} />
+            </label>
+          </div>
+
+          {/* Whisper log source selector */}
+          <div style={{ flex: "2 1 300px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+              <div style={{ ...sx.label }}>WhisperLog(s)</div>
+              {shelf.length > 0 && (
+                <>
+                  <button style={sx.btn(whisperMode === "shelf")} onClick={() => setWhisperMode("shelf")}>From Shelf</button>
+                  <button style={sx.btn(whisperMode === "upload")} onClick={() => setWhisperMode("upload")}>Upload</button>
+                </>
+              )}
+            </div>
+
+            {whisperMode === "upload" ? (
+              <label style={{ display: "flex", alignItems: "center", gap: 10,
+                border: `2px dashed ${whisperSources.length ? C.accent : C.border}`, borderRadius: 8,
+                padding: "10px 14px", cursor: "pointer",
+                background: whisperSources.length ? C.accentDim : C.surfaceAlt }}>
+                <span style={{ fontSize: 18 }}>{whisperSources.length ? "✓" : "📂"}</span>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: whisperSources.length ? C.accent : C.textMuted, fontFamily: FONT_UI }}>
+                    {whisperSources.length
+                      ? `${whisperSources.length} file${whisperSources.length > 1 ? "s" : ""} loaded: ${whisperSources.map(s=>s.name).join(", ")}`
+                      : "Select one or more CSV files"}
+                  </div>
+                  <div style={{ fontSize: 10, color: C.textDim, fontFamily: FONT_UI }}>Hold Ctrl/Cmd to select multiple</div>
+                </div>
+                <input type="file" accept=".csv" multiple onChange={handleWhisperUpload} style={{ display: "none" }} />
+              </label>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 160, overflowY: "auto",
+                border: `1px solid ${C.border}`, borderRadius: 8, padding: 6, background: C.surfaceAlt }}>
+                {shelf.length === 0
+                  ? <span style={{ fontSize: 11, color: C.textDim, fontFamily: FONT_UI, padding: "4px 6px" }}>Shelf is empty</span>
+                  : shelf.map(item => {
+                    const selected = whisperSources.some(s => s.name === item.label);
+                    return (
+                      <button key={item.id} onClick={() => handleShelfPick(item)}
+                        style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px",
+                          border: `1px solid ${selected ? C.accent : C.border}`, borderRadius: 6,
+                          background: selected ? C.accentDim : C.surface, cursor: "pointer", textAlign: "left" }}>
+                        <span style={{ fontSize: 12 }}>{selected ? "☑" : "☐"}</span>
+                        <span style={{ fontSize: 11, fontWeight: selected ? 700 : 400,
+                          color: selected ? C.accent : C.text, fontFamily: FONT_UI }}>{item.label}</span>
+                        <span style={{ fontSize: 10, color: C.textDim, fontFamily: FONT_UI, marginLeft: "auto" }}>
+                          {item.rows.length} rows
+                        </span>
+                      </button>
+                    );
+                  })
+                }
+              </div>
+            )}
+            {whisperSources.length > 0 && whisperMode === "shelf" && (
+              <div style={{ fontSize: 10, color: C.accent, fontFamily: FONT_UI, marginTop: 4 }}>
+                {whisperSources.length} file{whisperSources.length > 1 ? "s" : ""} selected
+              </div>
+            )}
+          </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <button onClick={handleScore} disabled={!zoomText || !whisperText}
+
+        {/* Action row */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
+          <button onClick={handleScore} disabled={!ready}
             style={{ padding: "9px 24px", background: C.accent, color: "#ffffff", border: "none",
-              borderRadius: 7, cursor: zoomText && whisperText ? "pointer" : "not-allowed",
-              fontSize: 13, fontWeight: 700, fontFamily: FONT_UI,
-              opacity: zoomText && whisperText ? 1 : 0.4 }}>
+              borderRadius: 7, cursor: ready ? "pointer" : "not-allowed",
+              fontSize: 13, fontWeight: 700, fontFamily: FONT_UI, opacity: ready ? 1 : 0.4 }}>
             Score Sessions →
           </button>
           {results && (
             <span style={{ fontSize: 12, color: C.accent, fontWeight: 700, fontFamily: FONT_UI }}>
-              ✓ {results.totalSessions} sessions scored across {results.assistants.length} assistants
+              ✓ {results.totalSessions} session{results.totalSessions !== 1 ? "s" : ""} scored across {results.assistants.length} assistant{results.assistants.length !== 1 ? "s" : ""}
             </span>
           )}
           {error && <span style={{ fontSize: 12, color: C.danger, fontFamily: FONT_UI }}>⚠ {error}</span>}
         </div>
+        {warnings.map((w, i) => (
+          <div key={i} style={{ marginTop: 8, fontSize: 11, color: C.warn, fontFamily: FONT_UI }}>⚠ {w}</div>
+        ))}
       </div>
 
+      {/* ── Results ── */}
       {results && (
         <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
 
@@ -1571,12 +1676,10 @@ function AssistantScorerTab() {
                   <button key={a.assistant} onClick={() => setActiveAsst(a.assistant)}
                     style={{ display: "flex", alignItems: "center", gap: 10, width: "100%",
                       padding: "9px 14px", border: "none", borderBottom: `1px solid ${C.border}`,
-                      background: isActive ? C.accentDim : "transparent",
-                      cursor: "pointer", textAlign: "left",
+                      background: isActive ? C.accentDim : "transparent", cursor: "pointer", textAlign: "left",
                       borderLeft: isActive ? `3px solid ${C.accent}` : "3px solid transparent" }}>
                     <div style={{ width: 32, height: 32, borderRadius: "50%", background: `${color}18`,
-                      border: `2px solid ${color}`, display: "flex", alignItems: "center", justifyContent: "center",
-                      flexShrink: 0 }}>
+                      border: `2px solid ${color}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                       <span style={{ fontSize: 11, fontWeight: 700, color, fontFamily: FONT }}>{Math.round(a.avgScore)}</span>
                     </div>
                     <div style={{ minWidth: 0 }}>
@@ -1603,7 +1706,7 @@ function AssistantScorerTab() {
                 <div>
                   <div style={{ fontSize: 16, fontWeight: 700, color: C.text, fontFamily: FONT_UI }}>{activeData.assistant}</div>
                   <div style={{ fontSize: 11, color: C.textMuted, fontFamily: FONT_UI, marginTop: 2 }}>
-                    {activeData.sessionCount} sessions &nbsp;·&nbsp; avg score {activeData.avgScore} &nbsp;·&nbsp; low {activeData.minScore}
+                    {activeData.sessionCount} sessions &nbsp;·&nbsp; avg {activeData.avgScore} &nbsp;·&nbsp; low {activeData.minScore}
                   </div>
                   {activeData.avgScore < 55 && (
                     <div style={{ marginTop: 6, fontSize: 11, color: C.danger, fontWeight: 700, fontFamily: FONT_UI }}>
@@ -1611,17 +1714,23 @@ function AssistantScorerTab() {
                     </div>
                   )}
                 </div>
-                {/* Mini dimension averages */}
+                {/* Dimension averages */}
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginLeft: "auto" }}>
-                  {["volume","queue","coverage","pacing","quality"].map(dim => {
-                    const vals = activeData.sessions.map(s => s.result.scores[dim]);
+                  {[
+                    { key: "volume",  label: "Volume",   max: 20 },
+                    { key: "queue",   label: "Queue",    max: 20 },
+                    { key: "cov1",    label: "Broad Cov",max: 10 },
+                    { key: "cov2",    label: "Deep Cov", max: 10 },
+                    { key: "pacing",  label: "Pacing",   max: 25 },
+                    { key: "quality", label: "Quality",  max: 15 },
+                  ].map(({ key, label, max }) => {
+                    const vals = activeData.sessions.map(s => s.result.scores[key] ?? 0);
                     const avg = vals.reduce((a,b)=>a+b,0)/vals.length;
-                    const max = dim === "pacing" ? 25 : dim === "quality" ? 15 : 20;
                     const color = avg < max * 0.4 ? C.danger : avg < max * 0.7 ? C.warn : C.accent;
                     return (
-                      <div key={dim} style={{ textAlign: "center", background: C.surfaceAlt,
+                      <div key={key} style={{ textAlign: "center", background: C.surfaceAlt,
                         borderRadius: 6, padding: "5px 10px", border: `1px solid ${C.border}`, borderTop: `2px solid ${color}` }}>
-                        <div style={{ ...sx.label, marginBottom: 1 }}>{dim}</div>
+                        <div style={{ ...sx.label, marginBottom: 1 }}>{label}</div>
                         <div style={{ fontSize: 13, fontWeight: 700, color, fontFamily: FONT }}>{avg.toFixed(1)}</div>
                       </div>
                     );
@@ -1654,7 +1763,7 @@ function AssistantScorerTab() {
               {/* Session cards */}
               {filteredSessions.map((s, i) => (
                 <SessionScoreCard
-                  key={`${s.date}-${i}`}
+                  key={`${s.assistant}-${s.date}-${i}`}
                   result={s.result}
                   sessionLabel={`${s.date} · ${s.courseId} · Class ${s.classId}${s.lesson ? ` · Lesson ${s.lesson}` : ""}`}
                 />
@@ -1674,7 +1783,7 @@ const TABS = [
   { id: "gap",     label: "📊 Gap Analyzer" },
   { id: "session", label: "🗓 Session Analyzer" },
   { id: "counter", label: "🔢 Message Counter" },
-  { id: "scorer",  label: "⭐ Asst. Scorer" },
+  { id: "scorer",  label: "⭐ Asst. Quality" },
 ];
 
 // Empty state shown in analysis tabs when no data is loaded
@@ -1751,7 +1860,7 @@ export default function App() {
           {tab === "gap"     && <GapAnalyzerTab     onGoToParser={goToParser} />}
           {tab === "session" && <SessionAnalyzerTab onGoToParser={goToParser} />}
           {tab === "counter" && <MessageCounterTab  onGoToParser={goToParser} />}
-          {tab === "scorer"  && <AssistantScorerTab />}
+          {tab === "scorer"  && <AssistantQualityTab />}
         </div>
       </div>
     </ShelfContext.Provider>
