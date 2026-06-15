@@ -1178,17 +1178,19 @@ function scoreMetric(val, p25, p50, p75, invert = false, maxPts = 20) {
   }
 }
 
-function qualityScore(pctPraise, praise_p75, praise_p90, pctIdle, nChains) {
-  let score = 15;
-  // Praise multi-whisper penalty (up to 7.5 pts)
-  if (pctPraise > praise_p90) score -= 7.5;
-  else if (pctPraise > praise_p75) score -= 3.75 * (pctPraise - praise_p75) / (praise_p90 - praise_p75 + 1e-9);
-  // Idle chain penalty (up to 7.5 pts) — 1-2 chains worse than 3+
-  if (nChains > 0 && pctIdle > 0) {
-    const mult = nChains === 1 ? 1.0 : nChains === 2 ? 1.3 : 0.7;
-    score -= Math.min(7.5, 7.5 * pctIdle * mult * 3);
-  }
-  return Math.max(0, score);
+function getFlags(pctPraise, praise_p75, praise_p90, pctIdle, nChains) {
+  const flags = [];
+  // Idle chain flags — critical for 1-2 (deliberate), warning for 3+
+  if (nChains === 1 || nChains === 2)
+    flags.push({ level: "critical", text: `${nChains} idle-whisper chain${nChains > 1 ? "s" : ""} detected` });
+  else if (nChains >= 3)
+    flags.push({ level: "warning", text: `${nChains} idle-whisper chains detected` });
+  // Praise blast flags
+  if (pctPraise > praise_p90)
+    flags.push({ level: "warning", text: `High praise blast rate (${(pctPraise*100).toFixed(0)}%)` });
+  else if (pctPraise > praise_p75)
+    flags.push({ level: "note", text: `Elevated praise blast rate (${(pctPraise*100).toFixed(0)}%)` });
+  return flags;
 }
 
 function detectIdleChains(whispers) {
@@ -1275,13 +1277,14 @@ function scoreSession(whispers, numStudents, numQueued, courseId) {
   const pctIdle = nWhispers > 0 ? idleCount / nWhispers : 0;
 
   const t = TIER_STATS;
-  const sVol   = scoreMetric(wps, t.wps_p25[tier], t.wps_p50[tier], t.wps_p75[tier]);
-  const sQueue = scoreMetric(wpq, t.wpq_p25[tier], t.wpq_p50[tier], t.wpq_p75[tier]);
+  const sVol   = scoreMetric(wps, t.wps_p25[tier], t.wps_p50[tier], t.wps_p75[tier], false, 20);
+  const sQueue = scoreMetric(wpq, t.wpq_p25[tier], t.wpq_p50[tier], t.wpq_p75[tier], false, 30);
   const sCov1  = scoreMetric(coverage1plus, t.cov1_p25[tier], t.cov1_p50[tier], t.cov1_p75[tier], false, 10);
   const sCov2  = scoreMetric(coverage2plus, t.cov2_p25[tier], t.cov2_p50[tier], t.cov2_p75[tier], false, 10);
-  const sPace  = scoreMetric(medianGap, t.gap_p25[tier], t.gap_p50[tier], t.gap_p75[tier], true) * 1.25;
-  const sQual  = qualityScore(pctPraise, t.praise_p75[tier], t.praise_p90[tier], pctIdle, nChains);
-  const total  = sVol + sQueue + sCov1 + sCov2 + sPace + sQual;
+  const sPace  = scoreMetric(medianGap, t.gap_p25[tier], t.gap_p50[tier], t.gap_p75[tier], true, 30);
+  const total  = sVol + sQueue + sCov1 + sCov2 + sPace;
+
+  const flags = getFlags(pctPraise, t.praise_p75[tier], t.praise_p90[tier], pctIdle, nChains);
 
   return {
     tier, tierLabel: TIER_LABELS[tier],
@@ -1289,12 +1292,11 @@ function scoreSession(whispers, numStudents, numQueued, courseId) {
     wps: +wps.toFixed(3), wpq: +wpq.toFixed(4),
     coverage1plus: +coverage1plus.toFixed(3), coverage2plus: +coverage2plus.toFixed(3),
     medianGap: +medianGap.toFixed(1), pctPraise: +pctPraise.toFixed(3),
-    pctIdle: +pctIdle.toFixed(3), nChains,
+    pctIdle: +pctIdle.toFixed(3), nChains, flags,
     scores: {
       volume: +sVol.toFixed(1), queue: +sQueue.toFixed(1),
       cov1: +sCov1.toFixed(1), cov2: +sCov2.toFixed(1),
-      pacing: +sPace.toFixed(1), quality: +sQual.toFixed(1),
-      total: +total.toFixed(1),
+      pacing: +sPace.toFixed(1), total: +total.toFixed(1),
     }
   };
 }
@@ -1330,17 +1332,21 @@ function ScoreBadge({ score }) {
 
 function SessionScoreCard({ result, sessionLabel }) {
   const { scores, tier, tierLabel, nWhispers, uniqueRecipients, numStudents, numQueued,
-    wps, coverage1plus, coverage2plus, medianGap, pctPraise, pctIdle, nChains } = result;
+    wps, coverage1plus, coverage2plus, medianGap, pctPraise, pctIdle, nChains, flags } = result;
+
   const [expanded, setExpanded] = useState(false);
 
-  const flags = [];
-  if (scores.total < 50) flags.push({ text: "Low overall — recommend observation", color: C.danger });
-  if (scores.pacing < 10) flags.push({ text: "Long idle gaps detected", color: C.danger });
-  if (nChains >= 1) flags.push({ text: `${nChains} idle-whisper chain${nChains > 1 ? "s" : ""} detected`, color: C.warn });
-  if (scores.volume < 8) flags.push({ text: "Low whisper volume vs. peers", color: C.warn });
-  if (scores.cov1 < 4) flags.push({ text: "Low broad coverage", color: C.warn });
-  if (scores.cov2 < 4) flags.push({ text: "Low deep coverage — few return visits", color: C.warn });
-  if (pctPraise > 0.12) flags.push({ text: `High praise blast rate (${(pctPraise*100).toFixed(0)}%)`, color: C.warn });
+  // Activity-based flags (always shown in header)
+  const activityFlags = [];
+  if (scores.total < 50) activityFlags.push({ text: "Low overall — recommend observation", color: C.danger });
+  if (scores.pacing < 12) activityFlags.push({ text: "Long idle gaps detected", color: C.danger });
+  if (scores.volume < 8) activityFlags.push({ text: "Low whisper volume vs. peers", color: C.warn });
+  if (scores.cov1 < 4) activityFlags.push({ text: "Low broad coverage", color: C.warn });
+  if (scores.cov2 < 4) activityFlags.push({ text: "Low deep coverage", color: C.warn });
+
+  // Quality flags styling
+  const flagColors = { critical: C.danger, warning: C.warn, note: C.accent };
+  const flagIcons  = { critical: "⚑", warning: "⚠", note: "ℹ" };
 
   return (
     <div style={{ ...sx.card, borderTop: `3px solid ${scores.total >= 80 ? C.accent : scores.total >= 60 ? C.warn : C.danger}`, marginBottom: 16 }}>
@@ -1352,11 +1358,12 @@ function SessionScoreCard({ result, sessionLabel }) {
           <div style={{ fontSize: 11, color: C.textMuted, fontFamily: FONT_UI }}>
             {tierLabel} &nbsp;·&nbsp; {nWhispers} whispers &nbsp;·&nbsp; {numStudents} students &nbsp;·&nbsp; {numQueued} queued
           </div>
-          {flags.length > 0 && (
+          {activityFlags.length > 0 && (
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
-              {flags.map((f, i) => (
-                <span key={i} style={{ fontSize: 10, background: `${f.color}18`, color: f.color, border: `1px solid ${f.color}44`,
-                  borderRadius: 10, padding: "2px 8px", fontFamily: FONT_UI, fontWeight: 600 }}>
+              {activityFlags.map((f, i) => (
+                <span key={i} style={{ fontSize: 10, background: `${f.color}18`, color: f.color,
+                  border: `1px solid ${f.color}44`, borderRadius: 10, padding: "2px 8px",
+                  fontFamily: FONT_UI, fontWeight: 600 }}>
                   ⚠ {f.text}
                 </span>
               ))}
@@ -1371,11 +1378,30 @@ function SessionScoreCard({ result, sessionLabel }) {
 
       {/* Score bars */}
       <ScoreMeter label="Volume (whispers/student)" value={scores.volume} max={20} />
-      <ScoreMeter label="Queue engagement (whispers per 100 queued)" value={scores.queue} max={20} />
+      <ScoreMeter label="Queue engagement (whispers per 100 queued)" value={scores.queue} max={30} />
       <ScoreMeter label="Broad coverage (students reached 1+ times)" value={scores.cov1} max={10} />
       <ScoreMeter label="Deep coverage (students reached 2+ times)" value={scores.cov2} max={10} />
-      <ScoreMeter label="Pacing (gap between whispers)" value={scores.pacing} max={25} />
-      <ScoreMeter label="Quality flags" value={scores.quality} max={15} />
+      <ScoreMeter label="Pacing (gap between whispers)" value={scores.pacing} max={30} />
+
+      {/* Quality flags section */}
+      {flags.length > 0 && (
+        <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 7,
+          background: C.surfaceAlt, border: `1px solid ${C.border}` }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: C.textMuted, fontFamily: FONT_UI,
+            textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Quality Flags</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {flags.map((f, i) => {
+              const color = flagColors[f.level];
+              return (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 11, color, fontWeight: 700 }}>{flagIcons[f.level]}</span>
+                  <span style={{ fontSize: 11, color, fontFamily: FONT_UI, fontWeight: 600 }}>{f.text}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Expanded detail */}
       {expanded && (
@@ -1718,11 +1744,10 @@ function AssistantQualityTab() {
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginLeft: "auto" }}>
                   {[
                     { key: "volume",  label: "Volume",   max: 20 },
-                    { key: "queue",   label: "Queue",    max: 20 },
+                    { key: "queue",   label: "Queue",    max: 30 },
                     { key: "cov1",    label: "Broad Cov",max: 10 },
                     { key: "cov2",    label: "Deep Cov", max: 10 },
-                    { key: "pacing",  label: "Pacing",   max: 25 },
-                    { key: "quality", label: "Quality",  max: 15 },
+                    { key: "pacing",  label: "Pacing",   max: 30 },
                   ].map(({ key, label, max }) => {
                     const vals = activeData.sessions.map(s => s.result.scores[key] ?? 0);
                     const avg = vals.reduce((a,b)=>a+b,0)/vals.length;
@@ -1737,6 +1762,31 @@ function AssistantQualityTab() {
                       </div>
                     );
                   })}
+                  {/* Flag count cards */}
+                  {(() => {
+                    const idleCount   = activeData.sessions.reduce((n, s) => n + (s.result.flags?.filter(f => f.text.includes("idle")).length || 0), 0);
+                    const praiseCount = activeData.sessions.reduce((n, s) => n + (s.result.flags?.filter(f => f.text.includes("praise")).length || 0), 0);
+                    const idleCrit    = activeData.sessions.reduce((n, s) => n + (s.result.flags?.filter(f => f.level === "critical").length || 0), 0);
+                    const iColor = idleCrit > 0 ? C.danger : idleCount > 0 ? C.warn : C.accent;
+                    const pColor = praiseCount > 0 ? C.warn : C.accent;
+                    return (
+                      <>
+                        <div style={{ textAlign: "center", background: C.surfaceAlt,
+                          borderRadius: 6, padding: "5px 10px", border: `1px solid ${C.border}`, borderTop: `2px solid ${iColor}` }}>
+                          <div style={{ ...sx.label, marginBottom: 1 }}>Idle Chains</div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: iColor, fontFamily: FONT }}>
+                            {idleCount}
+                            {idleCrit > 0 && <span style={{ fontSize: 10, color: C.danger, fontWeight: 700 }}> ({idleCrit}⚑)</span>}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: "center", background: C.surfaceAlt,
+                          borderRadius: 6, padding: "5px 10px", border: `1px solid ${C.border}`, borderTop: `2px solid ${pColor}` }}>
+                          <div style={{ ...sx.label, marginBottom: 1 }}>Praise Blasts</div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: pColor, fontFamily: FONT }}>{praiseCount}</div>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
 
