@@ -1178,18 +1178,45 @@ function scoreMetric(val, p25, p50, p75, invert = false, maxPts = 20) {
   }
 }
 
-function getFlags(pctPraise, praise_p75, praise_p90, pctIdle, nChains) {
+const COURSE_DURATION = {
+  prealgebra1: 75, prealgebra2: 75,
+  calculus: 120, grouptheory: 120, 'olympiad-geometry': 120,
+  'relativity-camp': 180,
+};
+function getCourseDuration(courseId) {
+  return COURSE_DURATION[courseId] || 90;
+}
+
+function getLongGapStats(gapsSec, activeSec, thresholdSec = 300) {
+  const longGaps = gapsSec.filter(g => g >= thresholdSec);
+  const maxGap = gapsSec.length ? Math.max(...gapsSec) : 0;
+  const totalLongGapSec = longGaps.reduce((a, b) => a + b, 0);
+  const longGapPct = activeSec > 0 ? totalLongGapSec / activeSec : 0;
+  return { longGapCount: longGaps.length, maxGap, longGapPct };
+}
+
+function getFlags(pctPraise, praise_p75, praise_p90, pctIdle, nChains, longGapCount, longGapPct, maxGap, activeMinutes, courseId) {
   const flags = [];
-  // Idle chain flags — critical for 1-2 (deliberate), warning for 3+
+  const expectedMin = getCourseDuration(courseId);
+
+  // Idle chain flags
   if (nChains === 1 || nChains === 2)
     flags.push({ level: "critical", text: `${nChains} idle-whisper chain${nChains > 1 ? "s" : ""} detected` });
   else if (nChains >= 3)
     flags.push({ level: "warning", text: `${nChains} idle-whisper chains detected` });
+
+  // Long gap flags — based on % of active session in gaps > 5 min
+  if (longGapPct >= 0.40)
+    flags.push({ level: "critical", text: `${(longGapPct*100).toFixed(0)}% of session in long gaps (max ${Math.round(maxGap/60)}m ${Math.round(maxGap%60)}s)` });
+  else if (longGapPct >= 0.20 || (longGapCount >= 3 && longGapPct > 0))
+    flags.push({ level: "warning", text: `${(longGapPct*100).toFixed(0)}% of session in long gaps (${longGapCount} gap${longGapCount !== 1 ? "s" : ""} over 5 min)` });
+
   // Praise blast flags
   if (pctPraise > praise_p90)
     flags.push({ level: "warning", text: `High praise blast rate (${(pctPraise*100).toFixed(0)}%)` });
   else if (pctPraise > praise_p75)
     flags.push({ level: "note", text: `Elevated praise blast rate (${(pctPraise*100).toFixed(0)}%)` });
+
   return flags;
 }
 
@@ -1276,6 +1303,10 @@ function scoreSession(whispers, numStudents, numQueued, courseId) {
   const { nChains, idleCount } = detectIdleChains(wsForChain);
   const pctIdle = nWhispers > 0 ? idleCount / nWhispers : 0;
 
+  const activeMinutes = (tsorted[tsorted.length-1] - tsorted[0]) / 60000;
+  const activeSec = activeMinutes * 60;
+  const { longGapCount, maxGap, longGapPct } = getLongGapStats(gapsSec, activeSec);
+
   const t = TIER_STATS;
   const sVol   = scoreMetric(wps, t.wps_p25[tier], t.wps_p50[tier], t.wps_p75[tier], false, 20);
   const sQueue = scoreMetric(wpq, t.wpq_p25[tier], t.wpq_p50[tier], t.wpq_p75[tier], false, 30);
@@ -1284,7 +1315,8 @@ function scoreSession(whispers, numStudents, numQueued, courseId) {
   const sPace  = scoreMetric(medianGap, t.gap_p25[tier], t.gap_p50[tier], t.gap_p75[tier], true, 30);
   const total  = sVol + sQueue + sCov1 + sCov2 + sPace;
 
-  const flags = getFlags(pctPraise, t.praise_p75[tier], t.praise_p90[tier], pctIdle, nChains);
+  const flags = getFlags(pctPraise, t.praise_p75[tier], t.praise_p90[tier], pctIdle, nChains,
+                         longGapCount, longGapPct, maxGap, activeMinutes, courseId);
 
   return {
     tier, tierLabel: TIER_LABELS[tier],
@@ -1293,6 +1325,9 @@ function scoreSession(whispers, numStudents, numQueued, courseId) {
     coverage1plus: +coverage1plus.toFixed(3), coverage2plus: +coverage2plus.toFixed(3),
     medianGap: +medianGap.toFixed(1), pctPraise: +pctPraise.toFixed(3),
     pctIdle: +pctIdle.toFixed(3), nChains, flags,
+    longGapCount, longGapPct: +longGapPct.toFixed(3),
+    maxGap: +maxGap.toFixed(0), activeMinutes: +activeMinutes.toFixed(1),
+    expectedMinutes: getCourseDuration(courseId),
     scores: {
       volume: +sVol.toFixed(1), queue: +sQueue.toFixed(1),
       cov1: +sCov1.toFixed(1), cov2: +sCov2.toFixed(1),
@@ -1332,7 +1367,8 @@ function ScoreBadge({ score }) {
 
 function SessionScoreCard({ result, sessionLabel }) {
   const { scores, tier, tierLabel, nWhispers, uniqueRecipients, numStudents, numQueued,
-    wps, coverage1plus, coverage2plus, medianGap, pctPraise, pctIdle, nChains, flags } = result;
+    wps, coverage1plus, coverage2plus, medianGap, pctPraise, pctIdle, nChains, flags,
+    longGapCount, longGapPct, maxGap, activeMinutes, expectedMinutes } = result;
 
   const [expanded, setExpanded] = useState(false);
 
@@ -1411,9 +1447,12 @@ function SessionScoreCard({ result, sessionLabel }) {
               { label: "Tier", value: tierLabel },
               { label: "Whispers / Student", value: wps },
               { label: "Whispers / 100 Queued", value: (result.wpq * 100).toFixed(2) },
-              { label: "Broad Coverage (1+)", value: (result.coverage1plus * 100).toFixed(0) + "%" },
-              { label: "Deep Coverage (2+)", value: (result.coverage2plus * 100).toFixed(0) + "%" },
+              { label: "Broad Coverage (1+)", value: (coverage1plus * 100).toFixed(0) + "%" },
+              { label: "Deep Coverage (2+)", value: (coverage2plus * 100).toFixed(0) + "%" },
               { label: "Median Gap", value: medianGap + "s" },
+              { label: "Max Gap", value: maxGap >= 60 ? `${Math.round(maxGap/60)}m ${Math.round(maxGap%60)}s` : `${maxGap}s`, warn: maxGap > 300 },
+              { label: "Long Gaps (5+ min)", value: longGapCount, warn: longGapCount >= 1 },
+              { label: "% Session in Long Gaps", value: (longGapPct * 100).toFixed(1) + "%", warn: longGapPct >= 0.20 },
               { label: "Unique Recipients", value: `${uniqueRecipients} / ${numStudents}` },
               { label: "Praise Blast (short multi) %", value: (pctPraise * 100).toFixed(1) + "%", warn: pctPraise > 0.12 },
               { label: "Idle Chains", value: nChains, warn: nChains >= 1 },
