@@ -1389,7 +1389,7 @@ function SessionScoreCard({ result, sessionLabel }) {
               { label: "Deep Coverage (2+)", value: (result.coverage2plus * 100).toFixed(0) + "%" },
               { label: "Median Gap", value: medianGap + "s" },
               { label: "Unique Recipients", value: `${uniqueRecipients} / ${numStudents}` },
-              { label: "Praise Blast %", value: (pctPraise * 100).toFixed(1) + "%", warn: pctPraise > 0.12 },
+              { label: "Praise Blast (short multi) %", value: (pctPraise * 100).toFixed(1) + "%", warn: pctPraise > 0.12 },
               { label: "Idle Chains", value: nChains, warn: nChains >= 1 },
               { label: "Idle Whisper %", value: (pctIdle * 100).toFixed(1) + "%", warn: pctIdle > 0.1 },
             ].map(item => (
@@ -1731,7 +1731,9 @@ function AssistantQualityTab() {
                       <div key={key} style={{ textAlign: "center", background: C.surfaceAlt,
                         borderRadius: 6, padding: "5px 10px", border: `1px solid ${C.border}`, borderTop: `2px solid ${color}` }}>
                         <div style={{ ...sx.label, marginBottom: 1 }}>{label}</div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color, fontFamily: FONT }}>{avg.toFixed(1)}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color, fontFamily: FONT }}>
+                          {avg.toFixed(1)}<span style={{ fontSize: 10, fontWeight: 400, color: C.textDim }}>/{max}</span>
+                        </div>
                       </div>
                     );
                   })}
