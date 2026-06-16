@@ -1729,6 +1729,82 @@ function AssistantQualityTab() {
 
       {/* ── Results ── */}
       {results && (
+        <>
+        {/* Export bar */}
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 11, color: C.textMuted, fontFamily: FONT_UI }}>Export:</span>
+          <button onClick={() => {
+            // Session-level CSV
+            const headers = [
+              "assistant","date","course_id","class_id","tier","total_score",
+              "score_volume","score_queue","score_cov1","score_cov2","score_pacing","score_long_gap",
+              "whispers","whispers_per_student","whispers_per_100_queued",
+              "broad_coverage","deep_coverage","median_gap_sec","long_gap_pct",
+              "long_gap_count","max_gap_sec","praise_blast_pct","idle_chains","idle_whisper_pct",
+              "num_students","num_queued","flags"
+            ];
+            const rows = results.assistants.flatMap(a => a.sessions.map(s => {
+              const r = s.result;
+              return [
+                a.assistant, s.date, s.courseId, s.classId, r.tier,
+                r.scores.total, r.scores.volume, r.scores.queue,
+                r.scores.cov1, r.scores.cov2, r.scores.pacing, r.scores.longGap ?? "",
+                r.nWhispers, r.wps, (r.wpq*100).toFixed(2),
+                (r.coverage1plus*100).toFixed(1), (r.coverage2plus*100).toFixed(1),
+                r.medianGap, (r.longGapPct*100).toFixed(1),
+                r.longGapCount, r.maxGap,
+                (r.pctPraise*100).toFixed(1), r.nChains, (r.pctIdle*100).toFixed(1),
+                r.numStudents, r.numQueued,
+                (r.flags||[]).map(f => `${f.level}: ${f.text}`).join(" | ")
+              ].map(v => `"${String(v ?? "").replace(/"/g,'""')}"`).join(",");
+            }));
+            const csv = [headers.join(","), ...rows].join("\n");
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+            a.download = "session_scores.csv";
+            a.click();
+          }} style={{ ...sx.btn(false), fontSize: 11 }}>
+            ↓ Session scores
+          </button>
+          <button onClick={() => {
+            // Assistant summary CSV
+            const headers = [
+              "assistant","sessions","avg_score","avg_volume","avg_queue",
+              "avg_cov1","avg_cov2","avg_pacing","avg_long_gap",
+              "avg_whispers_per_student","avg_whispers_per_100_queued",
+              "avg_broad_coverage","avg_deep_coverage","avg_median_gap_sec",
+              "avg_long_gap_pct","total_idle_chain_flags","total_praise_blast_flags",
+              "flag_for_observation"
+            ];
+            const rows = results.assistants.map(a => {
+              const ss = a.sessions;
+              const avg = key => (ss.reduce((n,s) => n + (s.result.scores[key]??0), 0) / ss.length).toFixed(2);
+              const avgR = key => (ss.reduce((n,s) => n + (s.result[key]??0), 0) / ss.length).toFixed(3);
+              const idleFlags   = ss.reduce((n,s) => n + (s.result.flags?.filter(f=>f.text.includes("idle")).length||0), 0);
+              const praiseFlags = ss.reduce((n,s) => n + (s.result.flags?.filter(f=>f.text.includes("praise")).length||0), 0);
+              const avgScore = ss.reduce((n,s) => n + s.result.scores.total, 0) / ss.length;
+              return [
+                a.assistant, ss.length, avgScore.toFixed(1),
+                avg("volume"), avg("queue"), avg("cov1"), avg("cov2"),
+                avg("pacing"), avg("longGap"),
+                avgR("wps"), (ss.reduce((n,s)=>n+(s.result.wpq||0),0)/ss.length*100).toFixed(2),
+                (ss.reduce((n,s)=>n+(s.result.coverage1plus||0),0)/ss.length*100).toFixed(1),
+                (ss.reduce((n,s)=>n+(s.result.coverage2plus||0),0)/ss.length*100).toFixed(1),
+                avgR("medianGap"),
+                (ss.reduce((n,s)=>n+(s.result.longGapPct||0),0)/ss.length*100).toFixed(1),
+                idleFlags, praiseFlags,
+                avgScore < 55 && ss.length >= 5 ? "Yes" : "No"
+              ].map(v => `"${String(v ?? "").replace(/"/g,'""')}"`).join(",");
+            });
+            const csv = [headers.join(","), ...rows].join("\n");
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+            a.download = "assistant_summary.csv";
+            a.click();
+          }} style={{ ...sx.btn(false), fontSize: 11 }}>
+            ↓ Assistant summary
+          </button>
+        </div>
         <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
 
           {/* Left: assistant roster */}
@@ -1866,6 +1942,7 @@ function AssistantQualityTab() {
             </div>
           )}
         </div>
+        </>
       )}
     </div>
   );
