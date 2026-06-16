@@ -1160,7 +1160,7 @@ const COURSE_TIERS = {"prealgebra1":"intro_math","prealgebra2":"intro_math","alg
 
 const TIER_LABELS = { intro_math: "Intro Math", interm_math: "Interm. Math", adv_math: "Adv. Math", woot: "WOOT", physics: "Physics", cs: "CS" };
 
-const TIER_STATS = {"wps_p25":{"adv_math":1.344,"cs":0.743,"interm_math":1.0,"intro_math":1.212,"physics":1.401,"woot":1.145},"wps_p50":{"adv_math":1.725,"cs":1.0,"interm_math":1.412,"intro_math":1.885,"physics":1.96,"woot":1.5},"wps_p75":{"adv_math":2.152,"cs":1.398,"interm_math":2.083,"intro_math":2.705,"physics":2.445,"woot":2.302},"wpq_p25":{"adv_math":0.0586,"cs":0.033,"interm_math":0.0437,"intro_math":0.0414,"physics":0.0578,"woot":0.052},"wpq_p50":{"adv_math":0.0845,"cs":0.0505,"interm_math":0.0668,"intro_math":0.0638,"physics":0.0858,"woot":0.0734},"wpq_p75":{"adv_math":0.1352,"cs":0.0744,"interm_math":0.1047,"intro_math":0.0901,"physics":0.125,"woot":0.1111},"cov1_p25":{"adv_math":0.5,"cs":0.3582,"interm_math":0.4516,"intro_math":0.5354,"physics":0.5619,"woot":0.4787},"cov1_p50":{"adv_math":0.5849,"cs":0.4545,"interm_math":0.5797,"intro_math":0.6818,"physics":0.6472,"woot":0.6165},"cov1_p75":{"adv_math":0.7205,"cs":0.5901,"interm_math":0.7143,"intro_math":0.7887,"physics":0.7517,"woot":0.7907},"cov2_p25":{"adv_math":0.3077,"cs":0.1698,"interm_math":0.2333,"intro_math":0.2893,"physics":0.3333,"woot":0.2537},"cov2_p50":{"adv_math":0.381,"cs":0.2321,"interm_math":0.3455,"intro_math":0.4302,"physics":0.4249,"woot":0.3418},"cov2_p75":{"adv_math":0.4753,"cs":0.3282,"interm_math":0.4615,"intro_math":0.5656,"physics":0.5374,"woot":0.4615},"gap_p25":{"adv_math":46.5,"cs":55.0,"interm_math":34.5,"intro_math":30.375,"physics":43.375,"woot":44.0},"gap_p50":{"adv_math":64.0,"cs":82.25,"interm_math":48.0,"intro_math":44.0,"physics":57.75,"woot":69.5},"gap_p75":{"adv_math":90.0,"cs":107.625,"interm_math":72.0,"intro_math":65.5,"physics":78.625,"woot":94.625},"praise_p75":{"adv_math":0.0582,"cs":0.0,"interm_math":0.0526,"intro_math":0.0702,"physics":0.0936,"woot":0.0318},"praise_p90":{"adv_math":0.091,"cs":0.0664,"interm_math":0.1278,"intro_math":0.1466,"physics":0.2212,"woot":0.0861}};
+const TIER_STATS = {"wps_p25":{"adv_math":1.344,"cs":0.743,"interm_math":1.0,"intro_math":1.212,"physics":1.401,"woot":1.145},"wps_p50":{"adv_math":1.725,"cs":1.0,"interm_math":1.412,"intro_math":1.885,"physics":1.96,"woot":1.5},"wps_p75":{"adv_math":2.152,"cs":1.398,"interm_math":2.083,"intro_math":2.705,"physics":2.445,"woot":2.302},"wpq_p25":{"adv_math":0.0586,"cs":0.033,"interm_math":0.0437,"intro_math":0.0414,"physics":0.0578,"woot":0.052},"wpq_p50":{"adv_math":0.0845,"cs":0.0505,"interm_math":0.0668,"intro_math":0.0638,"physics":0.0858,"woot":0.0734},"wpq_p75":{"adv_math":0.1352,"cs":0.0744,"interm_math":0.1047,"intro_math":0.0901,"physics":0.125,"woot":0.1111},"cov1_p25":{"adv_math":0.5,"cs":0.3582,"interm_math":0.4516,"intro_math":0.5354,"physics":0.5619,"woot":0.4787},"cov1_p50":{"adv_math":0.5849,"cs":0.4545,"interm_math":0.5797,"intro_math":0.6818,"physics":0.6472,"woot":0.6165},"cov1_p75":{"adv_math":0.7205,"cs":0.5901,"interm_math":0.7143,"intro_math":0.7887,"physics":0.7517,"woot":0.7907},"cov2_p25":{"adv_math":0.3077,"cs":0.1698,"interm_math":0.2333,"intro_math":0.2893,"physics":0.3333,"woot":0.2537},"cov2_p50":{"adv_math":0.381,"cs":0.2321,"interm_math":0.3455,"intro_math":0.4302,"physics":0.4249,"woot":0.3418},"cov2_p75":{"adv_math":0.4753,"cs":0.3282,"interm_math":0.4615,"intro_math":0.5656,"physics":0.5374,"woot":0.4615},"gap_p25":{"adv_math":46.5,"cs":55.0,"interm_math":34.5,"intro_math":30.375,"physics":43.375,"woot":44.0},"gap_p50":{"adv_math":64.0,"cs":82.25,"interm_math":48.0,"intro_math":44.0,"physics":57.75,"woot":69.5},"gap_p75":{"adv_math":90.0,"cs":107.625,"interm_math":72.0,"intro_math":65.5,"physics":78.625,"woot":94.625},"praise_p75":{"adv_math":0.0582,"cs":0.0,"interm_math":0.0526,"intro_math":0.0702,"physics":0.0936,"woot":0.0318},"praise_p90":{"adv_math":0.091,"cs":0.0664,"interm_math":0.1278,"intro_math":0.1466,"physics":0.2212,"woot":0.0861},"lg_p25":{"adv_math":0.1692,"cs":0.2796,"interm_math":0.08,"intro_math":0.0,"physics":0.0615,"woot":0.1158},"lg_p50":{"adv_math":0.2916,"cs":0.4401,"interm_math":0.2285,"intro_math":0.1214,"physics":0.1702,"woot":0.283},"lg_p75":{"adv_math":0.4444,"cs":0.6073,"interm_math":0.4239,"intro_math":0.2991,"physics":0.3771,"woot":0.4768}};
 
 function scoreMetric(val, p25, p50, p75, invert = false, maxPts = 20) {
   if (val == null || isNaN(val)) return maxPts * 0.5;
@@ -1312,8 +1312,9 @@ function scoreSession(whispers, numStudents, numQueued, courseId) {
   const sQueue = scoreMetric(wpq, t.wpq_p25[tier], t.wpq_p50[tier], t.wpq_p75[tier], false, 30);
   const sCov1  = scoreMetric(coverage1plus, t.cov1_p25[tier], t.cov1_p50[tier], t.cov1_p75[tier], false, 10);
   const sCov2  = scoreMetric(coverage2plus, t.cov2_p25[tier], t.cov2_p50[tier], t.cov2_p75[tier], false, 10);
-  const sPace  = scoreMetric(medianGap, t.gap_p25[tier], t.gap_p50[tier], t.gap_p75[tier], true, 30);
-  const total  = sVol + sQueue + sCov1 + sCov2 + sPace;
+  const sPace  = scoreMetric(medianGap, t.gap_p25[tier], t.gap_p50[tier], t.gap_p75[tier], true, 20);
+  const sLongGap = scoreMetric(longGapPct, t.lg_p25[tier], t.lg_p50[tier], t.lg_p75[tier], true, 10);
+  const total  = sVol + sQueue + sCov1 + sCov2 + sPace + sLongGap;
 
   const flags = getFlags(pctPraise, t.praise_p75[tier], t.praise_p90[tier], pctIdle, nChains,
                          longGapCount, longGapPct, maxGap, activeMinutes, courseId);
@@ -1331,7 +1332,8 @@ function scoreSession(whispers, numStudents, numQueued, courseId) {
     scores: {
       volume: +sVol.toFixed(1), queue: +sQueue.toFixed(1),
       cov1: +sCov1.toFixed(1), cov2: +sCov2.toFixed(1),
-      pacing: +sPace.toFixed(1), total: +total.toFixed(1),
+      pacing: +sPace.toFixed(1), longGap: +sLongGap.toFixed(1),
+      total: +total.toFixed(1),
     }
   };
 }
@@ -1375,7 +1377,7 @@ function SessionScoreCard({ result, sessionLabel }) {
   // Activity-based flags (always shown in header)
   const activityFlags = [];
   if (scores.total < 50) activityFlags.push({ text: "Low overall — recommend observation", color: C.danger });
-  if (scores.pacing < 12) activityFlags.push({ text: "Long idle gaps detected", color: C.danger });
+  if (scores.pacing < 8) activityFlags.push({ text: "Long idle gaps detected", color: C.danger });
   if (scores.volume < 8) activityFlags.push({ text: "Low whisper volume vs. peers", color: C.warn });
   if (scores.cov1 < 4) activityFlags.push({ text: "Low broad coverage", color: C.warn });
   if (scores.cov2 < 4) activityFlags.push({ text: "Low deep coverage", color: C.warn });
@@ -1417,7 +1419,8 @@ function SessionScoreCard({ result, sessionLabel }) {
       <ScoreMeter label="Queue engagement (whispers per 100 queued)" value={scores.queue} max={30} />
       <ScoreMeter label="Broad coverage (students reached 1+ times)" value={scores.cov1} max={10} />
       <ScoreMeter label="Deep coverage (students reached 2+ times)" value={scores.cov2} max={10} />
-      <ScoreMeter label="Pacing (gap between whispers)" value={scores.pacing} max={30} />
+      <ScoreMeter label="Pacing (median gap between whispers)" value={scores.pacing} max={20} />
+      <ScoreMeter label="Long gap % (% of session in 5+ min gaps)" value={scores.longGap} max={10} />
 
       {/* Quality flags section */}
       {flags.length > 0 && (
@@ -1786,7 +1789,8 @@ function AssistantQualityTab() {
                     { key: "queue",   label: "Queue",    max: 30 },
                     { key: "cov1",    label: "Broad Cov",max: 10 },
                     { key: "cov2",    label: "Deep Cov", max: 10 },
-                    { key: "pacing",  label: "Pacing",   max: 30 },
+                    { key: "pacing",  label: "Pacing",   max: 20 },
+                    { key: "longGap", label: "Long Gap", max: 10 },
                   ].map(({ key, label, max }) => {
                     const vals = activeData.sessions.map(s => s.result.scores[key] ?? 0);
                     const avg = vals.reduce((a,b)=>a+b,0)/vals.length;
@@ -1864,96 +1868,3 @@ function AssistantQualityTab() {
         </div>
       )}
     </div>
-  );
-}
-
-// ─── ROOT APP ─────────────────────────────────────────────────────────────────
-
-const TABS = [
-  { id: "parser",  label: "📥 Parser", startHere: true },
-  { id: "gap",     label: "📊 Gap Analyzer" },
-  { id: "session", label: "🗓 Session Analyzer" },
-  { id: "counter", label: "🔢 Message Counter" },
-  { id: "scorer",  label: "⭐ Asst. Quality" },
-];
-
-// Empty state shown in analysis tabs when no data is loaded
-function AnalysisEmptyState({ onGoToParser }) {
-  return (
-    <div style={{ border: `2px dashed ${C.border}`, borderRadius: 12, padding: "32px 24px", textAlign: "center", marginBottom: 24, background: C.surfaceAlt }}>
-      <div style={{ fontSize: 28, marginBottom: 12 }}>📥</div>
-      <div style={{ fontFamily: FONT_UI, fontSize: 13, color: C.text, fontWeight: 700, marginBottom: 8 }}>
-        No data loaded yet
-      </div>
-      <div style={{ fontFamily: FONT_UI, fontSize: 12, color: C.textMuted, marginBottom: 16, lineHeight: 1.7 }}>
-        This tool runs on CSVs generated by the <strong style={{ color: C.accent }}>Parser</strong> tab.<br/>
-        Parse an AoPS HTML file there first, then add it to the Shelf — or upload a saved CSV directly below.
-      </div>
-      <button onClick={onGoToParser}
-        style={{ padding: "8px 20px", background: C.accent, color: "#ffffff", border: "none", borderRadius: 7, cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: FONT_UI }}>
-        Go to Parser →
-      </button>
-    </div>
-  );
-}
-
-export default function App() {
-  useGoogleFont("https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap");
-  const [tab, setTab] = useState("parser");
-  const [shelf, setShelf] = useState([]);
-  const nextId = useRef(1);
-
-  const addToShelf = useCallback((item) => {
-    setShelf(prev => [...prev, { ...item, id: nextId.current++ }]);
-  }, []);
-
-  const removeFromShelf = useCallback((id) => {
-    setShelf(prev => prev.filter(i => i.id !== id));
-  }, []);
-
-  const goToParser = useCallback(() => setTab("parser"), []);
-
-  return (
-    <ShelfContext.Provider value={{ shelf, addToShelf, removeFromShelf }}>
-      <div style={{ fontFamily: FONT_UI, background: C.bg, color: C.text, minHeight: "100vh" }}>
-        {/* Header */}
-        <div style={{ background: C.navy, borderBottom: `1px solid ${C.navyDark}`, padding: "14px 24px", display: "flex", alignItems: "baseline", gap: 16 }}>
-          <h1 style={{ margin: 0, fontSize: 18, color: "#ffffff", fontWeight: 700, letterSpacing: "-0.01em", fontFamily: FONT_UI }}>
-            Ops<span style={{ color: C.accent }}>Board</span>
-          </h1>
-          <span style={{ fontSize: 11, color: "#9ab0c8", fontFamily: FONT_UI }}>Instructor, Assistant &amp; Helper Analytics</span>
-        </div>
-
-        {/* Shelf */}
-        <Shelf />
-
-        {/* Tabs */}
-        <div style={{ display: "flex", borderBottom: `1px solid ${C.border}`, background: C.surface, boxShadow: "0 1px 3px rgba(27,54,93,0.08)" }}>
-          {TABS.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              style={{ padding: "11px 20px", border: "none", borderBottom: tab===t.id ? `2px solid ${C.accent}` : "2px solid transparent",
-                cursor: "pointer", fontSize: 12, fontWeight: tab===t.id ? 700 : 400, fontFamily: FONT_UI,
-                background: "transparent", color: tab===t.id ? C.accent : C.textMuted, marginBottom: -1,
-                transition: "color 0.15s", display: "flex", alignItems: "center", gap: 6 }}>
-              {t.label}
-              {t.startHere && tab !== t.id && (
-                <span style={{ fontSize: 9, background: C.accent, color: "#ffffff", fontFamily: FONT_UI, borderRadius: 4, padding: "1px 6px", fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase" }}>
-                  Start here
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-
-        {/* Content */}
-        <div style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
-          {tab === "parser"  && <ParserTab />}
-          {tab === "gap"     && <GapAnalyzerTab     onGoToParser={goToParser} />}
-          {tab === "session" && <SessionAnalyzerTab onGoToParser={goToParser} />}
-          {tab === "counter" && <MessageCounterTab  onGoToParser={goToParser} />}
-          {tab === "scorer"  && <AssistantQualityTab />}
-        </div>
-      </div>
-    </ShelfContext.Provider>
-  );
-}
