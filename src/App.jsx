@@ -1355,20 +1355,22 @@ function scoreSession(whispers, numStudents, numQueued, courseId, isWeek1 = fals
 
   const t = TIER_STATS;
   const sVol   = scoreMetric(wps, t.wps_p25[tier], t.wps_p50[tier], t.wps_p75[tier], false, 20);
-  const sQueue = scoreMetric(wpq, t.wpq_p25[tier], t.wpq_p50[tier], t.wpq_p75[tier], false, 30);
+  const sQueue = scoreMetric(wpq, t.wpq_p25[tier], t.wpq_p50[tier], t.wpq_p75[tier], false, 20);
   const sCov1  = scoreMetric(coverage1plus, t.cov1_p25[tier], t.cov1_p50[tier], t.cov1_p75[tier], false, 10);
   const sCov2  = scoreMetric(coverage2plus, t.cov2_p25[tier], t.cov2_p50[tier], t.cov2_p75[tier], false, 10);
-  const sPace  = scoreMetric(medianGap, t.gap_p25[tier], t.gap_p50[tier], t.gap_p75[tier], true, 20);
+  const sPace  = scoreMetric(medianGap, t.gap_p25[tier], t.gap_p50[tier], t.gap_p75[tier], true, 30);
   const sLongGap = scoreMetric(longGapPct, t.lg_p25[tier], t.lg_p50[tier], t.lg_p75[tier], true, 10);
   const total  = sVol + sQueue + sCov1 + sCov2 + sPace + sLongGap;
 
   const flags = getFlags(pctPraise, t.praise_p75[tier], t.praise_p90[tier], pctIdle, nChains,
                          longGapCount, longGapPct, maxGap, activeMinutes, courseId);
 
+  const avgChar = clipped.length ? +(clipped.reduce((s,r) => s + (r.char_count||0), 0) / clipped.length).toFixed(1) : 0;
+
   return {
     tier, tierLabel: TIER_LABELS[tier],
     nWhispers, uniqueRecipients, numStudents, numQueued,
-    wps: +wps.toFixed(3), wpq: +wpq.toFixed(4),
+    wps: +wps.toFixed(3), wpq: +wpq.toFixed(4), avgChar,
     coverage1plus: +coverage1plus.toFixed(3), coverage2plus: +coverage2plus.toFixed(3),
     medianGap: +medianGap.toFixed(1), pctPraise: +pctPraise.toFixed(3),
     pctIdle: +pctIdle.toFixed(3), nChains, flags,
@@ -1415,7 +1417,7 @@ function ScoreBadge({ score }) {
 
 function SessionScoreCard({ result, sessionLabel }) {
   const { scores, tier, tierLabel, nWhispers, uniqueRecipients, numStudents, numQueued,
-    wps, coverage1plus, coverage2plus, medianGap, pctPraise, pctIdle, nChains, flags,
+    wps, avgChar, coverage1plus, coverage2plus, medianGap, pctPraise, pctIdle, nChains, flags,
     longGapCount, longGapPct, maxGap, activeMinutes, expectedMinutes } = result;
 
   const [expanded, setExpanded] = useState(false);
@@ -1462,10 +1464,10 @@ function SessionScoreCard({ result, sessionLabel }) {
 
       {/* Score bars */}
       <ScoreMeter label="Volume (whispers/student)" value={scores.volume} max={20} />
-      <ScoreMeter label="Queue engagement (whispers per 100 queued)" value={scores.queue} max={30} />
+      <ScoreMeter label="Queue engagement (whispers per 100 queued)" value={scores.queue} max={20} />
       <ScoreMeter label="Broad coverage (students reached 1+ times)" value={scores.cov1} max={10} />
       <ScoreMeter label="Deep coverage (students reached 2+ times)" value={scores.cov2} max={10} />
-      <ScoreMeter label="Pacing (median gap between whispers)" value={scores.pacing} max={20} />
+      <ScoreMeter label="Pacing (median gap between whispers)" value={scores.pacing} max={30} />
       <ScoreMeter label="Long gap % (% of session in 5+ min gaps)" value={scores.longGap} max={10} />
 
       {/* Quality flags section */}
@@ -1499,6 +1501,7 @@ function SessionScoreCard({ result, sessionLabel }) {
               { label: "Broad Coverage (1+)", value: (coverage1plus * 100).toFixed(0) + "%" },
               { label: "Deep Coverage (2+)", value: (coverage2plus * 100).toFixed(0) + "%" },
               { label: "Median Gap", value: medianGap + "s" },
+              { label: "Avg Char Count", value: avgChar },
               { label: "Max Gap", value: maxGap >= 60 ? `${Math.floor(maxGap/60)}m ${Math.round(maxGap%60)}s` : `${maxGap}s`, warn: maxGap > 300 },
               { label: "Long Gaps (5+ min)", value: longGapCount, warn: longGapCount >= 1 },
               { label: "% Session in Long Gaps", value: (longGapPct * 100).toFixed(1) + "%", warn: longGapPct >= 0.20 },
@@ -1927,10 +1930,10 @@ function AssistantQualityTab() {
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginLeft: "auto" }}>
                   {[
                     { key: "volume",  label: "Volume",   max: 20 },
-                    { key: "queue",   label: "Queue",    max: 30 },
+                    { key: "queue",   label: "Queue",    max: 20 },
                     { key: "cov1",    label: "Broad Cov",max: 10 },
                     { key: "cov2",    label: "Deep Cov", max: 10 },
-                    { key: "pacing",  label: "Pacing",   max: 20 },
+                    { key: "pacing",  label: "Pacing",   max: 30 },
                     { key: "longGap", label: "Long Gap", max: 10 },
                   ].map(({ key, label, max }) => {
                     const vals = activeData.sessions.map(s => s.result.scores[key] ?? 0);
