@@ -1183,6 +1183,36 @@ const COURSE_DURATION = {
   calculus: 120, grouptheory: 120, 'olympiad-geometry': 120,
   'relativity-camp': 180,
 };
+
+// ── SESSION START TIME CONFIG ──────────────────────────────────────────────
+// Update these if class start times change.
+// Standard start: 19:30. Weekend/special sessions: 16:30 or 13:00.
+// Week 1 (lesson === 1): starts at 19:20 and is 10 min longer than normal.
+// Snap logic: first whisper before 15:00 → 13:00, before 18:00 → 16:30, else → 19:30.
+const SESSION_START_TIMES = [
+  { before: 15, snapHour: 13, snapMin: 0 },
+  { before: 18, snapHour: 16, snapMin: 30 },
+  { before: 24, snapHour: 19, snapMin: 30 },
+];
+const WEEK1_START_HOUR = 19, WEEK1_START_MIN = 20, WEEK1_EXTRA_MIN = 10;
+// ──────────────────────────────────────────────────────────────────────────
+
+function getSessionWindow(firstWhisperTs, courseId, isWeek1) {
+  const d = new Date(firstWhisperTs);
+  const hour = d.getHours() + d.getMinutes() / 60;
+  let startH, startM;
+  if (isWeek1 && hour >= 18) {
+    startH = WEEK1_START_HOUR; startM = WEEK1_START_MIN;
+  } else {
+    const snap = SESSION_START_TIMES.find(s => hour < s.before);
+    startH = snap.snapHour; startM = snap.snapMin;
+  }
+  const start = new Date(d);
+  start.setHours(startH, startM, 0, 0);
+  const durationMin = getCourseDuration(courseId) + (isWeek1 && hour >= 18 ? WEEK1_EXTRA_MIN : 0);
+  const end = new Date(start.getTime() + durationMin * 60000);
+  return { start, end, durationMin };
+}
 function getCourseDuration(courseId) {
   return COURSE_DURATION[courseId] || 90;
 }
@@ -1253,7 +1283,7 @@ function detectIdleChains(whispers) {
   return { nChains, idleCount };
 }
 
-function scoreSession(whispers, numStudents, numQueued, courseId) {
+function scoreSession(whispers, numStudents, numQueued, courseId, isWeek1 = false) {
   const tier = COURSE_TIERS[courseId] || null;
   const ts = tier ? TIER_STATS : null;
 
@@ -1262,10 +1292,22 @@ function scoreSession(whispers, numStudents, numQueued, courseId) {
   if (!ws.length || !tier || !ts) return null;
 
   const sorted = [...ws].sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp));
-  const nWhispers = sorted.length;
+
+  // Determine session window from first whisper snap to nearest known start time
+  const { start: sessionStart, end: sessionEnd, durationMin } = getSessionWindow(
+    new Date(sorted[0].timestamp).getTime(), courseId, isWeek1
+  );
+
+  // Clip whispers to session window
+  const clipped = sorted.filter(r => {
+    const t = new Date(r.timestamp);
+    return t >= sessionStart && t <= sessionEnd;
+  });
+  if (!clipped.length) return null;
+  const nWhispers = clipped.length;
   // Coverage split: 1+ and 2+
   const recipientCounts = {};
-  sorted.forEach(r => { recipientCounts[r.recipient] = (recipientCounts[r.recipient] || 0) + 1; });
+  clipped.forEach(r => { recipientCounts[r.recipient] = (recipientCounts[r.recipient] || 0) + 1; });
   const n1plus = Object.values(recipientCounts).filter(c => c >= 1).length;
   const n2plus = Object.values(recipientCounts).filter(c => c >= 2).length;
   const coverage1plus = numStudents > 0 ? n1plus / numStudents : 0;
@@ -1275,11 +1317,14 @@ function scoreSession(whispers, numStudents, numQueued, courseId) {
   const wps = numStudents > 0 ? nWhispers / numStudents : 0;
   const wpq = numQueued > 0 ? nWhispers / numQueued : 0;
 
-  // Median gap
-  const tsorted = sorted.map(r => new Date(r.timestamp).getTime());
+  // Median gap — computed across full session window (start to end), not just first-to-last whisper
+  // This captures gaps at the beginning (late start) and end (early finish) of class
+  const sessionStartMs = sessionStart.getTime();
+  const sessionEndMs   = sessionEnd.getTime();
+  const clippedTs = [sessionStartMs, ...clipped.map(r => new Date(r.timestamp).getTime()), sessionEndMs];
   const gapsSec = [];
-  for (let i = 1; i < tsorted.length; i++) {
-    const g = (tsorted[i] - tsorted[i-1]) / 1000;
+  for (let i = 1; i < clippedTs.length; i++) {
+    const g = (clippedTs[i] - clippedTs[i-1]) / 1000;
     if (g > 0 && g < 7200) gapsSec.push(g);
   }
   const medianGap = gapsSec.length
@@ -1287,24 +1332,25 @@ function scoreSession(whispers, numStudents, numQueued, courseId) {
 
   // Multi-whisper / praise flags
   const tsMap = {};
-  sorted.forEach(r => {
+  clipped.forEach(r => {
     const key = `${r.timestamp}|${r.char_count}`;
     tsMap[key] = (tsMap[key]||0) + 1;
   });
   let nPraiseMulti = 0;
-  sorted.forEach(r => {
+  clipped.forEach(r => {
     const key = `${r.timestamp}|${r.char_count}`;
     if (tsMap[key] > 1 && r.char_count <= 15) nPraiseMulti++;
   });
   const pctPraise = nWhispers > 0 ? nPraiseMulti / nWhispers : 0;
 
   // Idle chain detection
-  const wsForChain = sorted.map(r => ({ timestamp: new Date(r.timestamp).getTime(), char_count: r.char_count }));
+  const wsForChain = clipped.map(r => ({ timestamp: new Date(r.timestamp).getTime(), char_count: r.char_count }));
   const { nChains, idleCount } = detectIdleChains(wsForChain);
   const pctIdle = nWhispers > 0 ? idleCount / nWhispers : 0;
 
-  const activeMinutes = (tsorted[tsorted.length-1] - tsorted[0]) / 60000;
-  const activeSec = activeMinutes * 60;
+  // Use full session duration for long gap % (not just first-to-last whisper)
+  const activeSec = durationMin * 60;
+  const activeMinutes = durationMin;
   const { longGapCount, maxGap, longGapPct } = getLongGapStats(gapsSec, activeSec);
 
   const t = TIER_STATS;
@@ -1453,7 +1499,7 @@ function SessionScoreCard({ result, sessionLabel }) {
               { label: "Broad Coverage (1+)", value: (coverage1plus * 100).toFixed(0) + "%" },
               { label: "Deep Coverage (2+)", value: (coverage2plus * 100).toFixed(0) + "%" },
               { label: "Median Gap", value: medianGap + "s" },
-              { label: "Max Gap", value: maxGap >= 60 ? `${Math.round(maxGap/60)}m ${Math.round(maxGap%60)}s` : `${maxGap}s`, warn: maxGap > 300 },
+              { label: "Max Gap", value: maxGap >= 60 ? `${Math.floor(maxGap/60)}m ${Math.round(maxGap%60)}s` : `${maxGap}s`, warn: maxGap > 300 },
               { label: "Long Gaps (5+ min)", value: longGapCount, warn: longGapCount >= 1 },
               { label: "% Session in Long Gaps", value: (longGapPct * 100).toFixed(1) + "%", warn: longGapPct >= 0.20 },
               { label: "Unique Recipients", value: `${uniqueRecipients} / ${numStudents}` },
@@ -1562,7 +1608,13 @@ function AssistantQualityTab() {
         const key = `${s.assistant}|${date}`;
         const whispers = whispersByKey[key] || [];
         if (!whispers.length) continue;
-        const result = scoreSession(whispers, parseInt(s.num_students) || 0, parseInt(s.num_queued) || 0, s.course_id || "");
+        const result = scoreSession(
+          whispers,
+          parseInt(s.num_students) || 0,
+          parseInt(s.num_queued) || 0,
+          s.course_id || "",
+          parseInt(s.lesson) === 1
+        );
         if (!result) continue;
         scoredSessions.push({ assistant: s.assistant, date, courseId: s.course_id, classId: s.class_id, lesson: s.lesson, result });
       }
@@ -1620,9 +1672,22 @@ function AssistantQualityTab() {
 
   return (
     <div>
+      {/* ── Config reminder ── */}
+      <div style={{ marginBottom: 14, padding: "10px 14px", borderRadius: 8,
+        background: "#FFF8E6", border: "1px solid #F5C842",
+        display: "flex", gap: 10, alignItems: "flex-start" }}>
+        <span style={{ fontSize: 14, flexShrink: 0 }}>⚙️</span>
+        <div style={{ fontSize: 11, color: "#7A5C00", fontFamily: FONT_UI, lineHeight: 1.6 }}>
+          <strong>Session start time config:</strong> Standard classes snap to 19:30.
+          Weekend/special sessions snap to 16:30 (first whisper before 18:00) or 13:00 (before 15:00).
+          Week 1 (lesson = 1, evening) starts at 19:20 and runs 10 min longer.
+          If start times change, update <code style={{ fontFamily: FONT, background: "#FFF0BE", padding: "1px 4px", borderRadius: 3 }}>SESSION_START_TIMES</code> and <code style={{ fontFamily: FONT, background: "#FFF0BE", padding: "1px 4px", borderRadius: 3 }}>WEEK1_START_HOUR/MIN</code> in the code.
+        </div>
+      </div>
+
       <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 16, fontFamily: FONT_UI, lineHeight: 1.7 }}>
         Load a <strong style={{ color: C.text }}>ZoomData CSV</strong> and one or more <strong style={{ color: C.text }}>WhisperLog files</strong> to score assistant performance across sessions.
-        Scores are tier-adjusted across six dimensions: volume, queue engagement, broad coverage, deep coverage, pacing, and quality flags.
+        Scores are tier-adjusted across six dimensions: volume, queue engagement, broad coverage, deep coverage, pacing, and long gap %.
       </p>
 
       {/* ── File loading card ── */}
