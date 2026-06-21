@@ -178,80 +178,6 @@ function toCSV(rows) {
     .concat(rows.map(r => headers.map(h => escape(r[h])).join(",")))
     .join("\n");
 }
-// ─── CSV EXPORT MODAL ─────────────────────────────────────────────────────────
-// Claude's sandbox blocks both blob: and data: URI downloads.
-// Instead we show the CSV in a copyable textarea + clipboard button.
-
-function CsvExportModal({ csv, filename, onClose }) {
-  const [copied, setCopied] = useState(false);
-  const textareaRef = useRef(null);
-
-  const handleCopy = () => {
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(csv).then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      });
-    } else {
-      // Fallback: select all in textarea
-      if (textareaRef.current) {
-        textareaRef.current.select();
-        document.execCommand("copy");
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      }
-    }
-  };
-
-  return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(27,54,93,0.55)", zIndex:1000,
-      display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={{ background:"#fff", borderRadius:12, padding:24, width:"100%", maxWidth:680,
-        boxShadow:"0 8px 40px rgba(27,54,93,0.22)", display:"flex", flexDirection:"column", gap:14 }}>
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-          <div>
-            <div style={{ fontFamily:FONT_UI, fontWeight:700, fontSize:14, color:C.text }}>{filename}</div>
-            <div style={{ fontFamily:FONT_UI, fontSize:11, color:C.textMuted, marginTop:2 }}>
-              Copy the text below, then paste into a new file and save as <strong>.csv</strong>
-            </div>
-          </div>
-          <button onClick={onClose}
-            style={{ background:"none", border:"none", fontSize:18, cursor:"pointer", color:C.textMuted, lineHeight:1 }}>✕</button>
-        </div>
-        <textarea ref={textareaRef} readOnly value={csv}
-          style={{ width:"100%", height:260, fontFamily:FONT, fontSize:10, padding:10,
-            border:`1px solid ${C.border}`, borderRadius:8, resize:"vertical",
-            background:C.surfaceAlt, color:C.text, lineHeight:1.5, boxSizing:"border-box" }} />
-        <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
-          <button onClick={onClose}
-            style={{ padding:"8px 18px", borderRadius:7, border:`1px solid ${C.border}`,
-              background:"transparent", color:C.textMuted, cursor:"pointer", fontSize:12, fontFamily:FONT_UI }}>
-            Close
-          </button>
-          <button onClick={handleCopy}
-            style={{ padding:"8px 22px", borderRadius:7, border:"none",
-              background: copied ? C.accent : C.navy, color:"#fff",
-              cursor:"pointer", fontSize:12, fontWeight:700, fontFamily:FONT_UI, minWidth:120,
-              transition:"background 0.2s" }}>
-            {copied ? "✓ Copied!" : "Copy to clipboard"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Helper — opens the modal; call useCsvExport() in any component that needs downloads.
-function useCsvExport() {
-  const [exportState, setExportState] = useState(null); // { csv, filename }
-  const openExport = (csv, filename) => setExportState({ csv, filename });
-  const closeExport = () => setExportState(null);
-  const modal = exportState
-    ? <CsvExportModal csv={exportState.csv} filename={exportState.filename} onClose={closeExport} />
-    : null;
-  return { openExport, modal };
-}
 
 function parseCSV(text) {
   const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
@@ -580,17 +506,20 @@ function FileSourceSelector({ label, onData, multiple = false }) {
 
 function Shelf() {
   const { shelf, removeFromShelf } = useShelf();
-  const { openExport, modal } = useCsvExport();
   if (!shelf.length) return null;
 
   const downloadCSV = (item) => {
     const csv = toCSV(item.rows);
-    openExport(csv, item.label.replace(/\s+/g, "_") + ".csv");
+    const uri = "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
+    const a = document.createElement("a");
+    a.href = uri;
+    a.download = item.label.replace(/\s+/g, "_") + ".csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   return (
-    <>
-    {modal}
     <div style={{ background: C.surfaceAlt, borderBottom: `1px solid ${C.border}`, padding: "8px 20px", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
       <span style={{ fontSize: 10, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.1em", fontFamily: FONT_UI, marginRight: 4, whiteSpace: "nowrap" }}>
         📦 Shelf
@@ -606,7 +535,6 @@ function Shelf() {
         </div>
       ))}
     </div>
-    </>
   );
 }
 
@@ -616,7 +544,6 @@ const PAGE_SIZE = 50;
 
 function ParserTab() {
   const { addToShelf } = useShelf();
-  const { openExport, modal } = useCsvExport();
   const [input, setInput] = useState("");
   const [rows, setRows] = useState([]);
   const [parsed, setParsed] = useState(false);
@@ -670,7 +597,11 @@ function ParserTab() {
     const sender = rows[0]?.sender || "log";
     const allDates = [...new Set(rows.map(r => r.date))].sort();
     const suffix = stripMessages ? "_no_messages" : "";
-    openExport(csv, `${sender}_${allDates[0]}_to_${allDates[allDates.length-1]}${suffix}.csv`);
+    const uri = "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
+    const a = document.createElement("a");
+    a.href = uri;
+    a.download = `${sender}_${allDates[0]}_to_${allDates[allDates.length-1]}${suffix}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
   };
 
   const handleClear = () => {
@@ -695,8 +626,6 @@ function ParserTab() {
   const pageRows = filtered.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE);
 
   return (
-    <>
-    {modal}
     <div>
       {!parsed ? (
         <div>
@@ -840,7 +769,6 @@ function ParserTab() {
         </>
       )}
     </div>
-    </>
   );
 }
 
@@ -1594,446 +1522,19 @@ function SessionScoreCard({ result, sessionLabel }) {
   );
 }
 
-// ─── TA COMPARATOR (TALens) — pure display, receives parsed rows as props ─────
-
-function TAComparatorPanel({ whisperSources }) {
-  const [sessIdx, setSessIdx] = useState(0);
-
-  // ── helpers ──────────────────────────────────────────────────────────────
-  const getDate = ts => (ts || "").slice(0, 10);
-
-  const withinSessionGaps = rows => {
-    const w = [...rows].filter(r => r.message_type === "whisper").sort((a,b)=>a.timestamp.localeCompare(b.timestamp));
-    const byDate = {};
-    w.forEach(r => { const d=getDate(r.timestamp); (byDate[d]=byDate[d]||[]).push(new Date(r.timestamp)); });
-    const gaps = [];
-    Object.values(byDate).forEach(ts => { ts.sort((a,b)=>a-b); for(let i=1;i<ts.length;i++) gaps.push((ts[i]-ts[i-1])/1000); });
-    return gaps;
-  };
-
-  const mean_ = arr => arr.length ? arr.reduce((s,v)=>s+v,0)/arr.length : 0;
-  const med_  = arr => { if(!arr.length) return 0; const s=[...arr].sort((a,b)=>a-b); const m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; };
-  const fmtSec = s => { s=Math.round(s); return s<60?`${s}s`:`${Math.floor(s/60)}m ${s%60}s`; };
-  const pct_  = (n,d) => d ? Math.round(n/d*100)+"%" : "0%";
-
-  // ── derive per-TA rows + validation from whisperSources ──
-  const { slots, validation } = useMemo(() => {
-    // Parse each source independently to track per-file class IDs
-    const parsed = whisperSources.map(src => {
-      const rows = parseCSV(src.text).filter(r => r.message_type && r.sender);
-      // Find the most-common 4-digit class_id in this file
-      const idCounts = {};
-      rows.forEach(r => {
-        const id = (r.class_id || "").trim();
-        if (/^\d{4}$/.test(id)) idCounts[id] = (idCounts[id] || 0) + 1;
-      });
-      const classId = Object.keys(idCounts).sort((a,b) => idCounts[b]-idCounts[a])[0] || null;
-      return { rows, classId, name: src.name };
-    });
-
-    // Validation signals
-    const sourceCount     = whisperSources.length;
-    const notExactlyTwo   = sourceCount !== 2;
-    const classIdSet      = new Set(parsed.map(p => p.classId).filter(Boolean));
-    const classIdMismatch = sourceCount === 2 && classIdSet.size > 1;
-    const classIds        = parsed.map(p => p.classId);
-
-    // Build sender-keyed slots from all rows combined
-    const all = parsed.flatMap(p => p.rows);
-    const senderMap = {};
-    all.forEach(r => { (senderMap[r.sender] = senderMap[r.sender] || []).push(r); });
-    const senders = Object.keys(senderMap);
-
-    return {
-      slots: {
-        A: senders[0] ? { rows: senderMap[senders[0]], name: senders[0] } : null,
-        B: senders[1] ? { rows: senderMap[senders[1]], name: senders[1] } : null,
-      },
-      validation: { sourceCount, notExactlyTwo, classIdMismatch, classIds, parsed },
-    };
-  }, [whisperSources]);
-
-  // ── derived stats ─────────────────────────────────────────────────────────
-  const stats = useMemo(() => {
-    const compute = slot => {
-      if (!slot) return null;
-      const { rows, name } = slot;
-      const types = { whisper:0, mod:0, class:0 };
-      rows.forEach(r => { const t=r.message_type?.toLowerCase(); if(types[t]!==undefined) types[t]++; });
-      const w = rows.filter(r => r.message_type==="whisper");
-      const recips = new Set(w.map(r=>r.recipient));
-      const uniqMsg = new Set(w.map(r=>r.message||r.recipient));
-      const gaps = withinSessionGaps(rows);
-      const sessions = [...new Set(rows.map(r=>getDate(r.timestamp)))].sort();
-      const wPerSess = {};
-      w.forEach(r => { const d=getDate(r.timestamp); wPerSess[d]=(wPerSess[d]||0)+1; });
-      return { name, rows, types, total:rows.length, w, recips, uniqMsg, gaps, sessions, wPerSess };
-    };
-    return { A: compute(slots.A), B: compute(slots.B) };
-  }, [slots]);
-
-  // ── 15-second session timeline ────────────────────────────────────────────
-  const sessions = useMemo(() => {
-    const a = stats.A, b = stats.B;
-    if (!a && !b) return [];
-    const allDates = [...new Set([...(a?.sessions||[]), ...(b?.sessions||[])])].sort();
-    return allDates.map(date => {
-      const r1 = a ? a.rows.filter(r=>getDate(r.timestamp)===date) : [];
-      const r2 = b ? b.rows.filter(r=>getDate(r.timestamp)===date) : [];
-      const all = [...r1,...r2].sort((x,y)=>x.timestamp.localeCompare(y.timestamp));
-      if (!all.length) return null;
-      const startMs = Math.floor(new Date(all[0].timestamp)/15000)*15000;
-      const endMs   = Math.ceil(new Date(all[all.length-1].timestamp)/15000)*15000;
-      const bins = [];
-      for (let t=startMs; t<=endMs; t+=15000) {
-        const t0=new Date(t), t1=new Date(t+15000);
-        const m1=r1.filter(r=>{const rt=new Date(r.timestamp);return rt>=t0&&rt<t1;});
-        const m2=r2.filter(r=>{const rt=new Date(r.timestamp);return rt>=t0&&rt<t1;});
-        const d=new Date(t);
-        bins.push({ ts:`${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`, m1, m2 });
-      }
-      return { date, bins, both: !!(a?.sessions.includes(date) && b?.sessions.includes(date)) };
-    }).filter(Boolean);
-  }, [stats]);
-
-  // ── shared-session bar data ───────────────────────────────────────────────
-  const sharedDates = useMemo(() => {
-    if (!stats.A || !stats.B) return [];
-    return stats.A.sessions.filter(d => stats.B.sessions.includes(d));
-  }, [stats]);
-
-  const barData = useMemo(() =>
-    sharedDates.map(d => ({
-      date: d.slice(5),
-      [stats.A?.name||"A"]: stats.A?.wPerSess[d]||0,
-      [stats.B?.name||"B"]: stats.B?.wPerSess[d]||0,
-    })),
-  [sharedDates, stats]);
-
-  // ── winner & verdict ──────────────────────────────────────────────────────
-  const winner = useMemo(() => {
-    if (!stats.A || !stats.B) return null;
-    return stats.A.uniqMsg.size >= stats.B.uniqMsg.size ? stats.A.name : stats.B.name;
-  }, [stats]);
-
-  const verdict = useMemo(() => {
-    if (!stats.A || !stats.B) return null;
-    const a=stats.A, b=stats.B;
-    const mg_a = a.gaps.length ? Math.round(mean_(a.gaps)) : 0;
-    const mg_b = b.gaps.length ? Math.round(mean_(b.gaps)) : 0;
-    const ratio = mg_a>0&&mg_b>0 ? (Math.max(mg_a,mg_b)/Math.min(mg_a,mg_b)).toFixed(1) : null;
-    const needTwo = sharedDates.some(d=>(a.wPerSess[d]||0)+(b.wPerSess[d]||0)>50);
-    const trend_b_vals = b.sessions.map(d=>b.wPerSess[d]||0);
-    const declining = trend_b_vals.length >= 3 && trend_b_vals[trend_b_vals.length-1] < trend_b_vals[0] * 0.4;
-    return { mg_a, mg_b, ratio, needTwo, declining, nameA:a.name, nameB:b.name };
-  }, [stats, sharedDates]);
-
-  // ── pill renderer ─────────────────────────────────────────────────────────
-  const Pill = ({ type, recipient }) => {
-    const map = { whisper:{bg:"#EEEDFE",color:"#3C3489"}, mod:{bg:"#DFF5EE",color:"#085041"}, class:{bg:"#FFF3E6",color:"#854F0B"} };
-    const s = map[type?.toLowerCase()] || { bg:C.surfaceAlt, color:C.textMuted };
-    return (
-      <span style={{ display:"inline-block", fontSize:10, padding:"1px 7px", borderRadius:99,
-        margin:1, background:s.bg, color:s.color, fontFamily:FONT, lineHeight:1.6 }}>
-        {type==="mod"?"mod":type==="class"?"class":recipient}
-      </span>
-    );
-  };
-
-  const hasAny = stats.A || stats.B;
-  const hasBoth = stats.A && stats.B;
-  const curSess = sessions[sessIdx];
-  const nameA = stats.A?.name || "TA A";
-  const nameB = stats.B?.name || "TA B";
-  const colA = PALETTE[0], colB = PALETTE[1];
-
-  const { notExactlyTwo, classIdMismatch, classIds, sourceCount, parsed: parsedSrcs } = validation;
-  const hasHardError = notExactlyTwo || classIdMismatch;
-
-  return (
-    <div>
-      {/* ── Validation banners ── */}
-      {!whisperSources.length && (
-        <div style={{ border:`2px dashed ${C.border}`, borderRadius:12, padding:"32px 24px",
-          textAlign:"center", background:C.surfaceAlt }}>
-          <div style={{ fontSize:28, marginBottom:10 }}>⚖</div>
-          <div style={{ fontFamily:FONT_UI, fontSize:13, color:C.text, fontWeight:700, marginBottom:6 }}>
-            No whisper logs loaded yet
-          </div>
-          <div style={{ fontFamily:FONT_UI, fontSize:12, color:C.textMuted }}>
-            Load TA whisper log files using the file loader above — they'll appear here automatically.
-          </div>
-        </div>
-      )}
-      {notExactlyTwo && whisperSources.length > 0 && (
-        <div style={{ display:"flex", gap:10, alignItems:"flex-start", marginBottom:16, padding:"12px 16px",
-          borderRadius:8, background:`${C.danger}0f`, border:`1px solid ${C.danger}55` }}>
-          <span style={{ fontSize:16, flexShrink:0 }}>⚠️</span>
-          <div style={{ fontFamily:FONT_UI, fontSize:12, color:C.danger, lineHeight:1.6 }}>
-            <strong>Exactly two whisper logs required for comparison.</strong>
-            {" "}{sourceCount === 1
-              ? "Only 1 file is currently selected. Please add a second TA's log."
-              : `${sourceCount} files are currently selected. Please select exactly one log per TA.`}
-          </div>
-        </div>
-      )}
-      {classIdMismatch && (
-        <div style={{ display:"flex", gap:10, alignItems:"flex-start", marginBottom:16, padding:"12px 16px",
-          borderRadius:8, background:`${C.danger}0f`, border:`1px solid ${C.danger}55` }}>
-          <span style={{ fontSize:16, flexShrink:0 }}>⚠️</span>
-          <div style={{ fontFamily:FONT_UI, fontSize:12, color:C.danger, lineHeight:1.6 }}>
-            <strong>Course ID mismatch — these logs are from different classes.</strong>
-            {" "}The selected files contain class IDs{" "}
-            {parsedSrcs.map((p,i) => (
-              <span key={i}>
-                <strong>{p.classId || "unknown"}</strong>
-                {i < parsedSrcs.length-1 ? " and " : ""}
-              </span>
-            ))}.
-            {" "}Please select logs from the same four-digit course to compare TAs fairly.
-          </div>
-        </div>
-      )}
-
-      {hasAny && !hasHardError && (
-        <>
-          {/* ── TA badges ── */}
-          <div style={{ display:"flex", gap:12, marginBottom:20, flexWrap:"wrap" }}>
-            {[{s:stats.A,c:colA},{s:stats.B,c:colB}].filter(x=>x.s).map(({s,c})=>(
-              <div key={s.name} style={{ flex:"1 1 200px", padding:"11px 16px", borderRadius:10,
-                border:`1.5px solid ${c}`, background:`${c}10` }}>
-                <div style={{ fontSize:13, fontWeight:700, color:c, fontFamily:FONT_UI, marginBottom:3 }}>{s.name}</div>
-                <div style={{ fontSize:11, color:C.textMuted, fontFamily:FONT_UI }}>
-                  {s.sessions.length} sessions &nbsp;·&nbsp; {s.total} total msgs
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* ── Communication types ── */}
-          <div style={sx.label}>Communication types</div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(120px,1fr))", gap:10, marginBottom:20 }}>
-            {[{s:stats.A,c:colA},{s:stats.B,c:colB}].filter(x=>x.s).flatMap(({s,c})=>
-              ["whisper","mod","class"].map(type => (
-                <div key={s.name+type} style={{ ...sx.card, borderTop:`3px solid ${c}`, padding:"10px 12px" }}>
-                  <div style={sx.label}>{s.name} {type}</div>
-                  <div style={{ fontSize:22, fontWeight:700, color:c, fontFamily:FONT_UI }}>{s.types[type]||0}</div>
-                  <div style={{ fontSize:10, color:C.textDim }}>{pct_(s.types[type]||0,s.total)} of msgs</div>
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* ── Whisper totals ── */}
-          <div style={sx.label}>Whisper totals</div>
-          <div style={{ display:"flex", gap:10, flexWrap:"wrap", marginBottom:20 }}>
-            {[{s:stats.A,c:colA},{s:stats.B,c:colB}].filter(x=>x.s).map(({s,c})=>(
-              <div key={s.name} style={{ ...sx.card, flex:"1 1 100px", borderTop:`3px solid ${c}`, padding:"10px 12px" }}>
-                <div style={sx.label}>{s.name} whispers</div>
-                <div style={{ fontSize:24, fontWeight:700, color:c, fontFamily:FONT_UI }}>{s.w.length}</div>
-              </div>
-            ))}
-            {hasBoth && (
-              <div style={{ ...sx.card, flex:"1 1 100px", borderTop:`3px solid ${C.textMuted}`, padding:"10px 12px" }}>
-                <div style={sx.label}>Combined</div>
-                <div style={{ fontSize:24, fontWeight:700, color:C.text, fontFamily:FONT_UI }}>
-                  {stats.A.w.length + stats.B.w.length}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* ── Unique recipients & posts ── */}
-          <div style={sx.label}>Unique recipients &amp; unique posts</div>
-          <div style={{ display:"flex", gap:10, flexWrap:"wrap", marginBottom:20 }}>
-            {[{s:stats.A,c:colA},{s:stats.B,c:colB}].filter(x=>x.s).flatMap(({s,c})=>[
-              <div key={s.name+"r"} style={{ ...sx.card, flex:"1 1 110px", borderTop:`3px solid ${c}`, padding:"10px 12px" }}>
-                <div style={sx.label}>{s.name} recipients</div>
-                <div style={{ fontSize:22, fontWeight:700, color:c, fontFamily:FONT_UI }}>{s.recips.size}</div>
-              </div>,
-              <div key={s.name+"u"} style={{ ...sx.card, flex:"1 1 110px", borderTop:`3px solid ${c}`, padding:"10px 12px" }}>
-                <div style={sx.label}>{s.name} unique posts</div>
-                <div style={{ fontSize:22, fontWeight:700, color:c, fontFamily:FONT_UI }}>{s.uniqMsg.size}</div>
-                <div style={{ fontSize:10, color:C.textDim }}>{pct_(s.uniqMsg.size,s.w.length)} unique</div>
-              </div>,
-            ])}
-          </div>
-
-          {/* ── Whisper gap analysis ── */}
-          {[stats.A,stats.B].some(s=>s?.gaps.length>0) && (
-            <>
-              <div style={sx.label}>Within-session whisper gap analysis</div>
-              <div style={{ ...sx.card, overflowX:"auto", marginBottom:20 }}>
-                <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12, fontFamily:FONT_UI }}>
-                  <thead>
-                    <tr>
-                      <th style={sx.th}>Metric</th>
-                      {[{s:stats.A,c:colA},{s:stats.B,c:colB}].filter(x=>x.s).map(({s,c})=>(
-                        <th key={s.name} style={{ ...sx.th, color:c }}>{s.name}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[
-                      { label:"Minimum gap", fn: g => g.length?fmtSec(Math.min(...g)):"—" },
-                      { label:"Maximum gap", fn: g => g.length?fmtSec(Math.max(...g)):"—" },
-                      { label:"Mean gap",    fn: g => g.length?fmtSec(mean_(g)):"—" },
-                      { label:"Median gap",  fn: g => g.length?fmtSec(med_(g)):"—" },
-                    ].map(row=>(
-                      <tr key={row.label}>
-                        <td style={{ ...sx.td, color:C.textMuted }}>{row.label}</td>
-                        {[stats.A,stats.B].filter(Boolean).map(s=>(
-                          <td key={s.name} style={{ ...sx.td, fontVariantNumeric:"tabular-nums", fontWeight:600 }}>{row.fn(s.gaps)}</td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-
-          {/* ── Per-session bar chart ── */}
-          {hasBoth && sharedDates.length > 0 && (
-            <>
-              <div style={sx.label}>Whispers per shared session</div>
-              <div style={{ ...sx.card, marginBottom:20 }}>
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={barData} margin={{ top:20, right:20, left:0, bottom:5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e8eaed"/>
-                    <XAxis dataKey="date" tick={{ fontSize:11, fill:C.textMuted }}/>
-                    <YAxis tick={{ fontSize:11, fill:C.textMuted }}/>
-                    <Tooltip contentStyle={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, fontFamily:FONT_UI, fontSize:11, color:C.text }}/>
-                    <Legend wrapperStyle={{ fontFamily:FONT_UI, fontSize:11 }}/>
-                    <Bar dataKey={nameA} fill={colA} radius={[3,3,0,0]}/>
-                    <Bar dataKey={nameB} fill={colB} radius={[3,3,0,0]}/>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </>
-          )}
-
-          {/* ── Better performer ── */}
-          {hasBoth && winner && (
-            <>
-              <div style={sx.label}>Better performer — unique whisper posts</div>
-              <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20, flexWrap:"wrap" }}>
-                <span style={{ display:"inline-flex", alignItems:"center", gap:8,
-                  background:`${winner===nameA?colA:colB}15`, border:`1.5px solid ${winner===nameA?colA:colB}`,
-                  borderRadius:99, padding:"6px 16px", fontFamily:FONT_UI, fontWeight:700, fontSize:13,
-                  color:winner===nameA?colA:colB }}>
-                  ★ {winner}
-                </span>
-                <span style={{ fontSize:12, color:C.textMuted, fontFamily:FONT_UI }}>
-                  {Math.max(stats.A.uniqMsg.size,stats.B.uniqMsg.size)} unique posts vs {Math.min(stats.A.uniqMsg.size,stats.B.uniqMsg.size)}
-                </span>
-              </div>
-            </>
-          )}
-
-          {/* ── Verdict ── */}
-          {hasBoth && verdict && (
-            <>
-              <div style={sx.label}>Verdict</div>
-              <div style={{ borderLeft:`4px solid ${PALETTE[0]}`, borderRadius:"0 10px 10px 0",
-                padding:"14px 18px", background:`${PALETTE[0]}08`, marginBottom:20 }}>
-                <p style={{ fontSize:13, lineHeight:1.75, color:C.text, fontFamily:FONT_UI, marginBottom:8 }}>
-                  <strong>Overall:</strong> {verdict.nameA} is the {verdict.mg_a<=verdict.mg_b?"more":"less"} frequent whisper sender
-                  (mean gap {fmtSec(verdict.mg_a)} vs {fmtSec(verdict.mg_b)}).
-                  {verdict.ratio && ` The faster sender whispers approximately ${verdict.ratio}× as often.`}
-                </p>
-                <p style={{ fontSize:13, lineHeight:1.75, color:C.text, fontFamily:FONT_UI, marginBottom:0 }}>
-                  <strong>Are two TAs needed?</strong> {verdict.needTwo
-                    ? "Yes — shared sessions show both TAs whispering simultaneously, indicating genuine parallel coverage."
-                    : "Shared-session data does not show consistent simultaneous activity. A single engaged TA may suffice."}
-                </p>
-                {verdict.declining && (
-                  <div style={{ marginTop:10, fontSize:12, color:C.warn, fontFamily:FONT_UI,
-                    background:`${C.warn}10`, border:`1px solid ${C.warn}44`, borderRadius:6, padding:"8px 12px" }}>
-                    ⚠ {verdict.nameB}'s session whisper counts show a significant declining trend — consider follow-up.
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-
-          {/* ── 15-second session timeline ── */}
-          {sessions.length > 0 && (
-            <>
-              <div style={sx.label}>Session timeline — 15-second bins</div>
-              <div style={{ ...sx.card, marginBottom:8 }}>
-                <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:12, flexWrap:"wrap" }}>
-                  <span style={{ fontSize:11, color:C.textMuted, fontFamily:FONT_UI }}>Session:</span>
-                  <select value={sessIdx} onChange={e=>setSessIdx(Number(e.target.value))}
-                    style={{ fontFamily:FONT, fontSize:12, padding:"4px 8px", border:`1px solid ${C.border}`,
-                      borderRadius:6, background:C.surface, color:C.text }}>
-                    {sessions.map((s,i)=>(
-                      <option key={s.date} value={i}>{s.date}{s.both?" (both)":""}</option>
-                    ))}
-                  </select>
-                  <div style={{ display:"flex", gap:8, fontSize:10, color:C.textMuted, fontFamily:FONT_UI }}>
-                    <span><span style={{ display:"inline-block", width:8, height:8, borderRadius:2, background:"#4a3fc0", marginRight:4 }}/>whisper</span>
-                    <span><span style={{ display:"inline-block", width:8, height:8, borderRadius:2, background:"#0b8f68", marginRight:4 }}/>mod</span>
-                    <span><span style={{ display:"inline-block", width:8, height:8, borderRadius:2, background:"#b85c00", marginRight:4 }}/>class</span>
-                  </div>
-                </div>
-                {curSess && (
-                  <div style={{ overflowY:"auto", maxHeight:360, border:`1px solid ${C.border}`, borderRadius:8 }}>
-                    <table style={{ width:"100%", borderCollapse:"collapse", fontSize:11 }}>
-                      <thead>
-                        <tr>
-                          <th style={{ ...sx.th, width:70 }}>Time</th>
-                          <th style={sx.th}>{nameA}</th>
-                          {stats.B && <th style={sx.th}>{nameB}</th>}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {curSess.bins.map((bin,i)=>(
-                          <tr key={i} style={{ borderBottom:`1px solid ${C.border}` }}>
-                            <td style={{ ...sx.td, color:C.textMuted, whiteSpace:"nowrap", fontFamily:FONT }}>{bin.ts}</td>
-                            <td style={{ ...sx.td, verticalAlign:"top" }}>
-                              {bin.m1.length ? bin.m1.map((r,j)=><Pill key={j} type={r.message_type} recipient={r.recipient}/>) : <span style={{ color:C.textDim, fontSize:10 }}>—</span>}
-                            </td>
-                            {stats.B && (
-                              <td style={{ ...sx.td, verticalAlign:"top" }}>
-                                {bin.m2.length ? bin.m2.map((r,j)=><Pill key={j} type={r.message_type} recipient={r.recipient}/>) : <span style={{ color:C.textDim, fontSize:10 }}>—</span>}
-                              </td>
-                            )}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
-// ─── ASSISTANT QUALITY TAB (wraps scorer + comparator, shared file state) ─────
-
 function AssistantQualityTab() {
   const { shelf } = useShelf();
-  const { openExport, modal } = useCsvExport();
-  const [mode, setMode] = useState("score");
-
-  // ── Shared file state — persists across mode switches ──
   const [zoomText, setZoomText]       = useState("");
   const [zoomLoaded, setZoomLoaded]   = useState("");
+  // whisper sources: array of { text, name }
   const [whisperSources, setWhisperSources] = useState([]);
-  const [whisperMode, setWhisperMode] = useState(shelf.length > 0 ? "shelf" : "upload");
-
-  // ── Scorer-only state ──
   const [results, setResults]         = useState(null);
   const [warnings, setWarnings]       = useState([]);
   const [error, setError]             = useState("");
   const [filterTier, setFilterTier]   = useState("all");
   const [sortBy, setSortBy]           = useState("date");
   const [activeAsst, setActiveAsst]   = useState(null);
+  const [whisperMode, setWhisperMode] = useState(shelf.length > 0 ? "shelf" : "upload");
 
   // Reset active assistant when results change
   useEffect(() => {
@@ -2173,40 +1674,36 @@ function AssistantQualityTab() {
   const ready = zoomText && whisperSources.length > 0;
 
   return (
-    <>
-    {modal}
     <div>
-      {/* ── Mode sub-nav ── */}
-      <div style={{ display:"flex", gap:4, marginBottom:20, background:C.surfaceAlt, borderRadius:10, padding:4, width:"fit-content", border:`1px solid ${C.border}` }}>
-        {[
-          { id:"score",   label:"⭐ Score Sessions" },
-          { id:"compare", label:"⚖ Compare TAs"     },
-        ].map(m=>(
-          <button key={m.id} onClick={()=>setMode(m.id)}
-            style={{ padding:"8px 20px", border:"none", borderRadius:7, cursor:"pointer",
-              fontSize:12, fontWeight:mode===m.id?700:400, fontFamily:FONT_UI,
-              background:mode===m.id?C.navy:"transparent",
-              color:mode===m.id?"#ffffff":C.textMuted,
-              transition:"all 0.15s" }}>
-            {m.label}
-          </button>
-        ))}
+      {/* ── Config reminder ── */}
+      <div style={{ marginBottom: 14, padding: "10px 14px", borderRadius: 8,
+        background: "#FFF8E6", border: "1px solid #F5C842",
+        display: "flex", gap: 10, alignItems: "flex-start" }}>
+        <span style={{ fontSize: 14, flexShrink: 0 }}>⚙️</span>
+        <div style={{ fontSize: 11, color: "#7A5C00", fontFamily: FONT_UI, lineHeight: 1.6 }}>
+          <strong>Session start time config:</strong> Standard classes snap to 19:30.
+          Weekend/special sessions snap to 16:30 (first whisper before 18:00) or 13:00 (before 15:00).
+          Week 1 (lesson = 1, evening) starts at 19:20 and runs 10 min longer.
+          If start times change, update <code style={{ fontFamily: FONT, background: "#FFF0BE", padding: "1px 4px", borderRadius: 3 }}>SESSION_START_TIMES</code> and <code style={{ fontFamily: FONT, background: "#FFF0BE", padding: "1px 4px", borderRadius: 3 }}>WEEK1_START_HOUR/MIN</code> in the code.
+        </div>
       </div>
 
-      {/* ── Unified file loader — always visible ── */}
+      <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 16, fontFamily: FONT_UI, lineHeight: 1.7 }}>
+        Load a <strong style={{ color: C.text }}>ZoomData CSV</strong> and one or more <strong style={{ color: C.text }}>WhisperLog files</strong> to score assistant performance across sessions.
+        Scores are tier-adjusted across six dimensions: volume, queue engagement, broad coverage, deep coverage, pacing, and long gap %.
+      </p>
+
+      {/* ── File loading card ── */}
       <div style={{ ...sx.card, marginBottom: 16 }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: C.text, fontFamily: FONT_UI, marginBottom: 12 }}>Load Files</div>
 
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-start" }}>
-          {/* ZoomData upload — only needed for scoring, dimmed in compare mode */}
-          <div style={{ flex: "1 1 200px", opacity: mode === "compare" ? 0.45 : 1, transition: "opacity 0.2s" }}>
-            <div style={{ ...sx.label, marginBottom: 6 }}>
-              ZoomData CSV
-              {mode === "compare" && <span style={{ fontWeight:400, textTransform:"none", letterSpacing:0, marginLeft:6, color:C.textDim }}>(used in Score mode)</span>}
-            </div>
+          {/* ZoomData upload */}
+          <div style={{ flex: "1 1 200px" }}>
+            <div style={{ ...sx.label, marginBottom: 6 }}>ZoomData CSV</div>
             <label style={{ display: "flex", alignItems: "center", gap: 10,
               border: `2px dashed ${zoomLoaded ? C.accent : C.border}`, borderRadius: 8,
-              padding: "10px 14px", cursor: mode === "compare" ? "default" : "pointer",
+              padding: "10px 14px", cursor: "pointer",
               background: zoomLoaded ? C.accentDim : C.surfaceAlt }}>
               <span style={{ fontSize: 18 }}>{zoomLoaded ? "✓" : "📂"}</span>
               <div style={{ minWidth: 0 }}>
@@ -2214,11 +1711,11 @@ function AssistantQualityTab() {
                   {zoomLoaded || "Select CSV file"}
                 </div>
               </div>
-              <input type="file" accept=".csv" onChange={handleZoom} style={{ display: "none" }} disabled={mode === "compare"} />
+              <input type="file" accept=".csv" onChange={handleZoom} style={{ display: "none" }} />
             </label>
           </div>
 
-          {/* Whisper logs — shared by both modes */}
+          {/* Whisper log source selector */}
           <div style={{ flex: "2 1 300px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
               <div style={{ ...sx.label }}>WhisperLog(s)</div>
@@ -2277,47 +1774,26 @@ function AssistantQualityTab() {
             )}
           </div>
         </div>
-      </div>
 
-      {mode === "compare" && <TAComparatorPanel whisperSources={whisperSources} />}
-
-      {mode === "score" && <>
-      {/* ── Config reminder ── */}
-      <div style={{ marginBottom: 14, padding: "10px 14px", borderRadius: 8,
-        background: "#FFF8E6", border: "1px solid #F5C842",
-        display: "flex", gap: 10, alignItems: "flex-start" }}>
-        <span style={{ fontSize: 14, flexShrink: 0 }}>⚙️</span>
-        <div style={{ fontSize: 11, color: "#7A5C00", fontFamily: FONT_UI, lineHeight: 1.6 }}>
-          <strong>Session start time config:</strong> Standard classes snap to 19:30.
-          Weekend/special sessions snap to 16:30 (first whisper before 18:00) or 13:00 (before 15:00).
-          Week 1 (lesson = 1, evening) starts at 19:20 and runs 10 min longer.
-          If start times change, update <code style={{ fontFamily: FONT, background: "#FFF0BE", padding: "1px 4px", borderRadius: 3 }}>SESSION_START_TIMES</code> and <code style={{ fontFamily: FONT, background: "#FFF0BE", padding: "1px 4px", borderRadius: 3 }}>WEEK1_START_HOUR/MIN</code> in the code.
+        {/* Action row */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
+          <button onClick={handleScore} disabled={!ready}
+            style={{ padding: "9px 24px", background: C.accent, color: "#ffffff", border: "none",
+              borderRadius: 7, cursor: ready ? "pointer" : "not-allowed",
+              fontSize: 13, fontWeight: 700, fontFamily: FONT_UI, opacity: ready ? 1 : 0.4 }}>
+            Score Sessions →
+          </button>
+          {results && (
+            <span style={{ fontSize: 12, color: C.accent, fontWeight: 700, fontFamily: FONT_UI }}>
+              ✓ {results.totalSessions} session{results.totalSessions !== 1 ? "s" : ""} scored across {results.assistants.length} assistant{results.assistants.length !== 1 ? "s" : ""}
+            </span>
+          )}
+          {error && <span style={{ fontSize: 12, color: C.danger, fontFamily: FONT_UI }}>⚠ {error}</span>}
         </div>
+        {warnings.map((w, i) => (
+          <div key={i} style={{ marginTop: 8, fontSize: 11, color: C.warn, fontFamily: FONT_UI }}>⚠ {w}</div>
+        ))}
       </div>
-
-      <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 16, fontFamily: FONT_UI, lineHeight: 1.7 }}>
-        Load a <strong style={{ color: C.text }}>ZoomData CSV</strong> and one or more <strong style={{ color: C.text }}>WhisperLog files</strong> to score assistant performance across sessions.
-        Scores are tier-adjusted across six dimensions: volume, queue engagement, broad coverage, deep coverage, pacing, and long gap %.
-      </p>
-
-      {/* ── Score Sessions action ── */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
-        <button onClick={handleScore} disabled={!ready}
-          style={{ padding: "9px 24px", background: C.accent, color: "#ffffff", border: "none",
-            borderRadius: 7, cursor: ready ? "pointer" : "not-allowed",
-            fontSize: 13, fontWeight: 700, fontFamily: FONT_UI, opacity: ready ? 1 : 0.4 }}>
-          Score Sessions →
-        </button>
-        {results && (
-          <span style={{ fontSize: 12, color: C.accent, fontWeight: 700, fontFamily: FONT_UI }}>
-            ✓ {results.totalSessions} session{results.totalSessions !== 1 ? "s" : ""} scored across {results.assistants.length} assistant{results.assistants.length !== 1 ? "s" : ""}
-          </span>
-        )}
-        {error && <span style={{ fontSize: 12, color: C.danger, fontFamily: FONT_UI }}>⚠ {error}</span>}
-      </div>
-      {warnings.map((w, i) => (
-        <div key={i} style={{ marginTop: 8, fontSize: 11, color: C.warn, fontFamily: FONT_UI }}>⚠ {w}</div>
-      ))}
 
       {/* ── Results ── */}
       {results && (
@@ -2351,7 +1827,10 @@ function AssistantQualityTab() {
               ].map(v => `"${String(v ?? "").replace(/"/g,'""')}"`).join(",");
             }));
             const csv = [headers.join(","), ...rows].join("\n");
-            openExport(csv, "session_scores.csv");
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+            a.download = "session_scores.csv";
+            a.click();
           }} style={{ ...sx.btn(false), fontSize: 11 }}>
             ↓ Session scores
           </button>
@@ -2386,7 +1865,10 @@ function AssistantQualityTab() {
               ].map(v => `"${String(v ?? "").replace(/"/g,'""')}"`).join(",");
             });
             const csv = [headers.join(","), ...rows].join("\n");
-            openExport(csv, "assistant_summary.csv");
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+            a.download = "assistant_summary.csv";
+            a.click();
           }} style={{ ...sx.btn(false), fontSize: 11 }}>
             ↓ Assistant summary
           </button>
@@ -2530,9 +2012,7 @@ function AssistantQualityTab() {
         </div>
         </>
       )}
-      </>}
     </div>
-    </>
   );
 }
 
