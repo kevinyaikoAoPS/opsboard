@@ -541,9 +541,35 @@ function Shelf() {
 // ─── PARSER TAB ───────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 50;
+const QUEUE_STATUS = { pending: "pending", processing: "processing", done: "done", error: "error" };
 
+function useJSZip(onLoad) {
+  useEffect(() => {
+    if (window.JSZip) { onLoad(window.JSZip); return; }
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
+    s.onload = () => onLoad(window.JSZip);
+    document.head.appendChild(s);
+  }, []);
+}
+
+function makeLabel(rows, filename) {
+  const sender = rows[0]?.sender || "unknown";
+  const classId = rows[0]?.class_id || "unknown";
+  const dates = [...new Set(rows.map(r => r.date))].sort();
+  const dateRange = dates.length === 1 ? dates[0] : `${dates[0]}_to_${dates[dates.length-1]}`;
+  return `${sender}___${classId}___${dateRange}`;
+}
+
+function makeFilename(rows, filename, strip) {
+  const label = makeLabel(rows, filename);
+  return `${label}${strip ? "_no_messages" : ""}.csv`;
+}
 function ParserTab() {
   const { addToShelf } = useShelf();
+  const [mode, setMode] = useState("single"); // "single" | "bulk"
+
+  // Single mode state
   const [input, setInput] = useState("");
   const [rows, setRows] = useState([]);
   const [parsed, setParsed] = useState(false);
@@ -556,6 +582,14 @@ function ParserTab() {
   const [addedToShelf, setAddedToShelf] = useState(false);
   const [stripMessages, setStripMessages] = useState(false);
 
+  // Bulk mode state
+  const [queue, setQueue] = useState([]);
+  const [bulkStrip, setBulkStrip] = useState(false);
+  const [zipping, setZipping] = useState(false);
+  const JSZipRef = useRef(null);
+  useJSZip(JSZip => { JSZipRef.current = JSZip; });
+
+  // ── Single mode handlers ──
   const handleFile = (file) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -581,26 +615,18 @@ function ParserTab() {
 
   const handleAddToShelf = () => {
     if (!rows.length) return;
-    const sender = rows[0].sender;
-    const classId = rows[0].class_id;
-    const dates = [...new Set(rows.map(r => r.date))].sort();
-    const label = `${sender} · ${classId} · ${dates[0]}${dates.length > 1 ? `–${dates[dates.length-1].slice(5)}` : ""}`;
+    const label = makeLabel(rows, fileLoaded);
     addToShelf({ label, rows });
     setAddedToShelf(true);
   };
 
   const handleDownload = () => {
-    const exportRows = stripMessages
-      ? rows.map(({ message, ...rest }) => ({ ...rest, message: "" }))
-      : rows;
+    const exportRows = stripMessages ? rows.map(({ message, ...rest }) => ({ ...rest, message: "" })) : rows;
     const csv = toCSV(exportRows);
-    const sender = rows[0]?.sender || "log";
-    const allDates = [...new Set(rows.map(r => r.date))].sort();
-    const suffix = stripMessages ? "_no_messages" : "";
+    const filename = makeFilename(rows, fileLoaded, stripMessages);
     const uri = "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
     const a = document.createElement("a");
-    a.href = uri;
-    a.download = `${sender}_${allDates[0]}_to_${allDates[allDates.length-1]}${suffix}.csv`;
+    a.href = uri; a.download = filename;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
   };
 
@@ -608,6 +634,67 @@ function ParserTab() {
     setParsed(false); setInput(""); setRows([]); setFileLoaded(""); setStatus(""); setAddedToShelf(false); setStripMessages(false);
   };
 
+  // ── Bulk mode handlers ──
+  const handleBulkFiles = (files) => {
+    const newItems = Array.from(files).map((f, i) => ({
+      id: Date.now() + i, filename: f.name, file: f,
+      status: QUEUE_STATUS.pending, rows: [], error: null,
+    }));
+    setQueue(prev => [...prev, ...newItems]);
+    newItems.forEach(item => processBulkFile(item));
+  };
+
+  const processBulkFile = (item) => {
+    setQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: QUEUE_STATUS.processing } : q));
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        let text = e.target.result;
+        if (item.filename.endsWith(".html") || item.filename.endsWith(".htm") || text.trimStart().startsWith("<!"))
+          text = extractTextFromHTML(text);
+        const rows = parseLogFromText(text);
+        if (!rows.length) throw new Error("No messages found");
+        const label = makeLabel(rows, item.filename);
+        setQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: QUEUE_STATUS.done, rows, label } : q));
+      } catch(err) {
+        setQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: QUEUE_STATUS.error, error: err.message } : q));
+      }
+    };
+    reader.readAsText(item.file);
+  };
+
+  const handleBulkAddAllToShelf = () => {
+    queue.filter(q => q.status === QUEUE_STATUS.done).forEach(q => {
+      addToShelf({ label: q.label, rows: q.rows });
+    });
+  };
+
+  const handleBulkDownloadZip = async () => {
+    const done = queue.filter(q => q.status === QUEUE_STATUS.done);
+    if (!done.length || !JSZipRef.current) return;
+    setZipping(true);
+    try {
+      const zip = new JSZipRef.current();
+      done.forEach(q => {
+        const exportRows = bulkStrip ? q.rows.map(({ message, ...rest }) => ({ ...rest, message: "" })) : q.rows;
+        const csv = toCSV(exportRows);
+        const filename = makeFilename(q.rows, q.filename, bulkStrip);
+        zip.file(filename, csv);
+      });
+      const blob = await zip.generateAsync({ type: "blob" });
+      const uri = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = uri; a.download = `opsboard_logs${bulkStrip ? "_no_messages" : ""}.zip`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(uri);
+    } finally {
+      setZipping(false);
+    }
+  };
+
+  const handleBulkClear = () => setQueue([]);
+
+  // ── Single mode derived state ──
   const dates = useMemo(() => [...new Set(rows.map(r => r.date))].sort(), [rows]);
   const stats = useMemo(() => {
     const byType = { class: 0, whisper: 0, mod: 0 };
@@ -625,9 +712,28 @@ function ParserTab() {
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const pageRows = filtered.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE);
 
+  // ── Bulk derived state ──
+  const bulkDone = queue.filter(q => q.status === QUEUE_STATUS.done).length;
+  const bulkTotal = queue.length;
+
+  const stripToggle = (checked, onChange) => (
+    <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, fontFamily: FONT_UI, padding: "7px 12px", border: `1px solid ${checked ? C.accent : C.border}`, borderRadius: 6, background: checked ? C.accentDim : "transparent", userSelect: "none" }}>
+      <input type="checkbox" checked={checked} onChange={onChange} style={{ accentColor: C.accent, width: 14, height: 14 }} />
+      <span style={{ color: checked ? C.accent : C.textMuted, fontWeight: checked ? 700 : 400 }}>Strip message content</span>
+    </label>
+  );
+
   return (
     <div>
-      {!parsed ? (
+      {/* Mode toggle */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+        {[{id:"single",label:"📄 Single File"},{id:"bulk",label:"📦 Bulk Parse"}].map(m => (
+          <button key={m.id} onClick={() => setMode(m.id)} style={{ ...sx.btn(mode===m.id), fontSize: 12, padding: "7px 16px" }}>{m.label}</button>
+        ))}
+      </div>
+
+      {/* ── SINGLE MODE ── */}
+      {mode === "single" && !parsed && (
         <div>
           <div onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
             onDragOver={e => e.preventDefault()}
@@ -654,9 +760,10 @@ function ParserTab() {
             {status && <span style={{ fontSize: 12, color: C.accent, fontWeight: 700, fontFamily: FONT_UI }}>{status}</span>}
           </div>
         </div>
-      ) : (
+      )}
+
+      {mode === "single" && parsed && (
         <>
-          {/* Stat cards */}
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
             <StatCard label="Sender"   value={stats.sender}         />
             <StatCard label="Class ID" value={stats.classId}        />
@@ -668,7 +775,6 @@ function ParserTab() {
             <StatCard label="Images"   value={stats.imageOnly}      color={C.textMuted} />
           </div>
 
-          {/* Action row: shelf / download / strip toggle / clear */}
           <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
             <button onClick={handleAddToShelf} disabled={addedToShelf}
               style={{ padding: "7px 16px", background: addedToShelf ? C.accentDim : C.accent, color: addedToShelf ? C.accent : "#ffffff", border: `1px solid ${C.accent}`, borderRadius: 6, cursor: addedToShelf ? "default" : "pointer", fontSize: 12, fontWeight: 700, fontFamily: FONT_UI }}>
@@ -678,17 +784,13 @@ function ParserTab() {
               style={{ padding: "7px 16px", background: C.accent, color: "#ffffff", border: `1px solid ${C.accent}`, borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: FONT_UI }}>
               ⬇ Download CSV
             </button>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, color: C.textMuted, fontFamily: FONT_UI, padding: "7px 12px", border: `1px solid ${stripMessages ? C.accent : C.border}`, borderRadius: 6, background: stripMessages ? C.accentDim : "transparent", userSelect: "none" }}>
-              <input type="checkbox" checked={stripMessages} onChange={e => setStripMessages(e.target.checked)} style={{ accentColor: C.accent, width: 14, height: 14 }} />
-              <span style={{ color: stripMessages ? C.accent : C.textMuted, fontWeight: stripMessages ? 700 : 400 }}>Strip message content</span>
-            </label>
+            {stripToggle(stripMessages, e => setStripMessages(e.target.checked))}
             <button onClick={handleClear}
               style={{ padding: "7px 20px", background: C.danger, color: "#ffffff", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 700, fontFamily: FONT_UI, marginLeft: "auto" }}>
               ✕ Clear
             </button>
           </div>
 
-          {/* By-date table */}
           <div style={{ ...sx.card, marginBottom: 16, overflowX: "auto" }}>
             <div style={sx.label}>Messages by Date</div>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -710,17 +812,16 @@ function ParserTab() {
             </table>
           </div>
 
-          {/* Filter row */}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
             <select value={filterType} onChange={e => { setFilterType(e.target.value); setPage(1); }}
-              style={{ padding: "6px 10px", borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 12, fontFamily: FONT, background: C.surface, color: C.text, cursor: 'pointer', fontFamily: FONT_UI }}>
+              style={{ padding: "6px 10px", borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 12, fontFamily: FONT_UI, background: C.surface, color: C.text }}>
               <option value="all">All types</option>
               <option value="class">Class</option>
               <option value="whisper">Whisper</option>
               <option value="mod">MOD</option>
             </select>
             <select value={filterDate} onChange={e => { setFilterDate(e.target.value); setPage(1); }}
-              style={{ padding: "6px 10px", borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 12, fontFamily: FONT, background: C.surface, color: C.text, fontFamily: FONT_UI }}>
+              style={{ padding: "6px 10px", borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 12, fontFamily: FONT_UI, background: C.surface, color: C.text }}>
               <option value="all">All dates</option>
               {dates.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
@@ -733,7 +834,6 @@ function ParserTab() {
             Showing {Math.min((page-1)*PAGE_SIZE+1, filtered.length)}–{Math.min(page*PAGE_SIZE, filtered.length)} of {filtered.length}
           </div>
 
-          {/* Message table */}
           <div style={{ ...sx.card, overflowX: "auto", padding: 0 }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead><tr>{["Timestamp","Type","Recipient","Message","Chars"].map(h => <th key={h} style={sx.th}>{h}</th>)}</tr></thead>
@@ -767,6 +867,83 @@ function ParserTab() {
             </div>
           )}
         </>
+      )}
+
+      {/* ── BULK MODE ── */}
+      {mode === "bulk" && (
+        <div>
+          <div onDrop={e => { e.preventDefault(); handleBulkFiles(e.dataTransfer.files); }}
+            onDragOver={e => e.preventDefault()}
+            style={{ border: `2px dashed ${C.border}`, borderRadius: 8, padding: "28px 18px", background: C.surfaceAlt, marginBottom: 16, display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center" }}>
+            <span style={{ fontSize: 32 }}>📂</span>
+            <span style={{ fontSize: 13, color: C.textMuted, fontFamily: FONT_UI }}>
+              Drop multiple .html log files here
+            </span>
+            <label style={{ padding: "7px 18px", background: C.accent, color: "#ffffff", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: FONT_UI, marginTop: 4 }}>
+              Browse Files
+              <input type="file" accept=".html,.htm,.txt,.csv" multiple
+                onChange={e => { if (e.target.files.length) handleBulkFiles(e.target.files); e.target.value = ""; }}
+                style={{ display: "none" }} />
+            </label>
+          </div>
+
+          {queue.length > 0 && (
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 12, color: C.textMuted, fontFamily: FONT_UI }}>
+                {bulkDone}/{bulkTotal} parsed
+                {queue.filter(q => q.status === QUEUE_STATUS.error).length > 0 &&
+                  <span style={{ color: C.danger, marginLeft: 8 }}>· {queue.filter(q => q.status === QUEUE_STATUS.error).length} errors</span>}
+              </span>
+              <button onClick={handleBulkAddAllToShelf} disabled={!bulkDone}
+                style={{ padding: "7px 16px", background: bulkDone ? C.accent : C.surfaceAlt, color: bulkDone ? "#ffffff" : C.textMuted, border: `1px solid ${bulkDone ? C.accent : C.border}`, borderRadius: 6, cursor: bulkDone ? "pointer" : "default", fontSize: 12, fontWeight: 700, fontFamily: FONT_UI }}>
+                📦 Add All to Shelf
+              </button>
+              <button onClick={handleBulkDownloadZip} disabled={!bulkDone || zipping}
+                style={{ padding: "7px 16px", background: bulkDone ? C.accent : C.surfaceAlt, color: bulkDone ? "#ffffff" : C.textMuted, border: `1px solid ${bulkDone ? C.accent : C.border}`, borderRadius: 6, cursor: bulkDone ? "pointer" : "default", fontSize: 12, fontWeight: 700, fontFamily: FONT_UI }}>
+                {zipping ? "⏳ Zipping…" : "⬇ Download All (.zip)"}
+              </button>
+              {stripToggle(bulkStrip, e => setBulkStrip(e.target.checked))}
+              <button onClick={handleBulkClear}
+                style={{ padding: "7px 20px", background: C.danger, color: "#ffffff", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 700, fontFamily: FONT_UI, marginLeft: "auto" }}>
+                ✕ Clear All
+              </button>
+            </div>
+          )}
+
+          {queue.length > 0 && (
+            <div style={{ ...sx.card, padding: 0, overflow: "hidden" }}>
+              {queue.map((item, i) => {
+                const statusColor = { pending: C.textMuted, processing: C.warn, done: C.accent, error: C.danger }[item.status];
+                const statusIcon  = { pending: "⏳", processing: "⚙️", done: "✓", error: "✗" }[item.status];
+                return (
+                  <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderBottom: i < queue.length-1 ? `1px solid ${C.border}` : "none", background: i % 2 === 0 ? "transparent" : C.surfaceAlt }}>
+                    <span style={{ fontSize: 14, minWidth: 20, textAlign: "center" }}>{statusIcon}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: C.text, fontFamily: FONT_UI, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {item.status === QUEUE_STATUS.done ? item.label : item.filename}
+                      </div>
+                      {item.status === QUEUE_STATUS.done && (
+                        <div style={{ fontSize: 11, color: C.textMuted, fontFamily: FONT_UI }}>{item.rows.length} messages</div>
+                      )}
+                      {item.status === QUEUE_STATUS.error && (
+                        <div style={{ fontSize: 11, color: C.danger, fontFamily: FONT_UI }}>{item.error}</div>
+                      )}
+                    </div>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: statusColor, fontFamily: FONT_UI, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                      {item.status}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {queue.length === 0 && (
+            <div style={{ textAlign: "center", padding: "32px 0", color: C.textMuted, fontSize: 13, fontFamily: FONT_UI }}>
+              No files queued yet. Drop some HTML files above to get started.
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
