@@ -1700,10 +1700,7 @@ function SessionScoreCard({ result, sessionLabel }) {
 }
 
 function AssistantQualityTab() {
-  const { shelf } = useShelf();
-  const [zoomText, setZoomText]       = useState("");
-  const [zoomLoaded, setZoomLoaded]   = useState("");
-  // whisper sources: array of { text, name }
+  const { shelf, zoomData, setZoomData, clearZoomData } = useShelf();
   const [whisperSources, setWhisperSources] = useState([]);
   const [results, setResults]         = useState(null);
   const [warnings, setWarnings]       = useState([]);
@@ -1720,7 +1717,8 @@ function AssistantQualityTab() {
 
   const handleZoom = async (e) => {
     const f = e.target.files[0]; if (!f) return;
-    setZoomText(await f.text()); setZoomLoaded(f.name); setResults(null); setError("");
+    setZoomData({ text: await f.text(), filename: f.name });
+    setResults(null); setError("");
   };
 
   const handleWhisperUpload = async (e) => {
@@ -1745,7 +1743,7 @@ function AssistantQualityTab() {
     setError(""); setWarnings([]); setResults(null);
     try {
       // Parse zoom CSV
-      const zoomRows = parseCSV(zoomText).filter(r => r.lesson_date && r.class_id);
+      const zoomRows = parseCSV(zoomData.text).filter(r => r.lesson_date && r.class_id);
       if (!zoomRows.length) { setError("Could not parse ZoomData CSV. Check the file format."); return; }
       if (!whisperSources.length) { setError("No whisper log files loaded."); return; }
 
@@ -1848,7 +1846,7 @@ function AssistantQualityTab() {
     return ss;
   }, [activeData, filterTier, sortBy]);
 
-  const ready = zoomText && whisperSources.length > 0;
+  const ready = zoomData.text && whisperSources.length > 0;
 
   return (
     <div>
@@ -1878,18 +1876,31 @@ function AssistantQualityTab() {
           {/* ZoomData upload */}
           <div style={{ flex: "1 1 200px" }}>
             <div style={{ ...sx.label, marginBottom: 6 }}>ZoomData CSV</div>
-            <label style={{ display: "flex", alignItems: "center", gap: 10,
-              border: `2px dashed ${zoomLoaded ? C.accent : C.border}`, borderRadius: 8,
-              padding: "10px 14px", cursor: "pointer",
-              background: zoomLoaded ? C.accentDim : C.surfaceAlt }}>
-              <span style={{ fontSize: 18 }}>{zoomLoaded ? "✓" : "📂"}</span>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: zoomLoaded ? C.accent : C.textMuted, fontFamily: FONT_UI }}>
-                  {zoomLoaded || "Select CSV file"}
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <label style={{ flex: 1, display: "flex", alignItems: "center", gap: 10,
+                border: `2px dashed ${zoomData.filename ? C.accent : C.border}`, borderRadius: 8,
+                padding: "10px 14px", cursor: "pointer",
+                background: zoomData.filename ? C.accentDim : C.surfaceAlt }}>
+                <span style={{ fontSize: 18 }}>{zoomData.filename ? "✓" : "📂"}</span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: zoomData.filename ? C.accent : C.textMuted, fontFamily: FONT_UI,
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 160 }}>
+                    {zoomData.filename || "Select CSV file"}
+                  </div>
                 </div>
-              </div>
-              <input type="file" accept=".csv" onChange={handleZoom} style={{ display: "none" }} />
-            </label>
+                <input type="file" accept=".csv" onChange={e => { handleZoom(e); e.target.value = ""; }} style={{ display: "none" }} />
+              </label>
+              {zoomData.filename && (
+                <button onClick={() => { clearZoomData(); setResults(null); setError(""); }}
+                  title="Remove ZoomData file"
+                  style={{ width: 28, height: 28, borderRadius: "50%", border: `1px solid ${C.border}`,
+                    background: C.surfaceAlt, color: C.textMuted, cursor: "pointer", fontSize: 12,
+                    display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                    fontWeight: 700, lineHeight: 1 }}>
+                  ✕
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Whisper log source selector */}
@@ -2227,6 +2238,7 @@ export default function App() {
   useGoogleFont("https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap");
   const [tab, setTab] = useState("parser");
   const [shelf, setShelf] = useState([]);
+  const [zoomData, setZoomData] = useState({ text: "", filename: "" });
   const nextId = useRef(1);
 
   const addToShelf = useCallback((item) => {
@@ -2237,10 +2249,12 @@ export default function App() {
     setShelf(prev => prev.filter(i => i.id !== id));
   }, []);
 
+  const clearZoomData = useCallback(() => setZoomData({ text: "", filename: "" }), []);
+
   const goToParser = useCallback(() => setTab("parser"), []);
 
   return (
-    <ShelfContext.Provider value={{ shelf, addToShelf, removeFromShelf }}>
+    <ShelfContext.Provider value={{ shelf, addToShelf, removeFromShelf, zoomData, setZoomData, clearZoomData }}>
       <div style={{ fontFamily: FONT_UI, background: C.bg, color: C.text, minHeight: "100vh" }}>
         {/* Header */}
         <div style={{ background: C.navy, borderBottom: `1px solid ${C.navyDark}`, padding: "14px 24px", display: "flex", alignItems: "baseline", gap: 16 }}>
