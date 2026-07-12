@@ -1333,11 +1333,11 @@ function MessageCounterTab({ onGoToParser }) {
 
 // ─── ASSISTANT SCORER TAB ─────────────────────────────────────────────────────
 
-const COURSE_TIERS = {"prealgebra1":"intro_math","prealgebra2":"intro_math","algebra-a":"intro_math","algebra-b":"intro_math","intro-geometry":"intro_math","intro-counting":"intro_math","intro-numbertheory":"intro_math","paradoxes-camp":"intro_math","intermediate-algebra":"interm_math","intermediate-counting":"interm_math","intermediate-numbertheory":"interm_math","precalc":"interm_math","mathcounts-basics":"interm_math","mathcounts-advanced":"interm_math","maa-amc10":"interm_math","maa-amc10-final-five":"interm_math","maa-amc12":"interm_math","maa-aimea":"interm_math","maa-aimeb":"interm_math","calculus":"adv_math","olympiad-geometry":"adv_math","grouptheory":"adv_math","fma":"woot","relativity-camp":"woot","intro-physics":"physics","physics1":"physics","python1":"cs","python2":"cs","cs-bronze":"cs"};
+const COURSE_TIERS = {"prealgebra1":"intro_math","prealgebra2":"intro_math","algebra-a":"intro_math","algebra-b":"intro_math","intro-geometry":"intro_math","intro-counting":"intro_math","intro-numbertheory":"intro_math","mathcounts-basics":"intro_math","mathcounts-advanced":"intro_math","intermediate-algebra":"interm_math","intermediate-counting":"interm_math","intermediate-numbertheory":"interm_math","precalc":"interm_math","maa-amc10":"interm_math","maa-amc10-final-five":"interm_math","maa-amc12":"interm_math","calculus":"adv_math","olympiad-geometry":"adv_math","grouptheory":"adv_math","maa-aimea":"adv_math","maa-aimeb":"adv_math","woot-math-1":"woot","woot-math-2":"woot","woot-chem":"woot","woot-physics":"woot","woot-code":"woot","intro-physics":"physics","physics1":"physics","fma":"physics","paradoxes-camp":"physics","relativity-camp":"physics","python1":"cs","python2":"cs","cs-bronze":"cs"};
 
 const TIER_LABELS = { intro_math: "Intro Math", interm_math: "Interm. Math", adv_math: "Adv. Math", woot: "WOOT", physics: "Physics", cs: "CS" };
 
-const TIER_STATS = {"wps_p25":{"adv_math":1.344,"cs":0.743,"interm_math":1.0,"intro_math":1.212,"physics":1.401,"woot":1.145},"wps_p50":{"adv_math":1.725,"cs":1.0,"interm_math":1.412,"intro_math":1.885,"physics":1.96,"woot":1.5},"wps_p75":{"adv_math":2.152,"cs":1.398,"interm_math":2.083,"intro_math":2.705,"physics":2.445,"woot":2.302},"wpq_p25":{"adv_math":0.0586,"cs":0.033,"interm_math":0.0437,"intro_math":0.0414,"physics":0.0578,"woot":0.052},"wpq_p50":{"adv_math":0.0845,"cs":0.0505,"interm_math":0.0668,"intro_math":0.0638,"physics":0.0858,"woot":0.0734},"wpq_p75":{"adv_math":0.1352,"cs":0.0744,"interm_math":0.1047,"intro_math":0.0901,"physics":0.125,"woot":0.1111},"cov1_p25":{"adv_math":0.5,"cs":0.3582,"interm_math":0.4516,"intro_math":0.5354,"physics":0.5619,"woot":0.4787},"cov1_p50":{"adv_math":0.5849,"cs":0.4545,"interm_math":0.5797,"intro_math":0.6818,"physics":0.6472,"woot":0.6165},"cov1_p75":{"adv_math":0.7205,"cs":0.5901,"interm_math":0.7143,"intro_math":0.7887,"physics":0.7517,"woot":0.7907},"cov2_p25":{"adv_math":0.3077,"cs":0.1698,"interm_math":0.2333,"intro_math":0.2893,"physics":0.3333,"woot":0.2537},"cov2_p50":{"adv_math":0.381,"cs":0.2321,"interm_math":0.3455,"intro_math":0.4302,"physics":0.4249,"woot":0.3418},"cov2_p75":{"adv_math":0.4753,"cs":0.3282,"interm_math":0.4615,"intro_math":0.5656,"physics":0.5374,"woot":0.4615},"gap_p25":{"adv_math":46.5,"cs":55.0,"interm_math":34.5,"intro_math":30.375,"physics":43.375,"woot":44.0},"gap_p50":{"adv_math":64.0,"cs":82.25,"interm_math":48.0,"intro_math":44.0,"physics":57.75,"woot":69.5},"gap_p75":{"adv_math":90.0,"cs":107.625,"interm_math":72.0,"intro_math":65.5,"physics":78.625,"woot":94.625},"praise_p75":{"adv_math":0.0582,"cs":0.0,"interm_math":0.0526,"intro_math":0.0702,"physics":0.0936,"woot":0.0318},"praise_p90":{"adv_math":0.091,"cs":0.0664,"interm_math":0.1278,"intro_math":0.1466,"physics":0.2212,"woot":0.0861},"lg_p25":{"adv_math":0.1692,"cs":0.2796,"interm_math":0.08,"intro_math":0.0,"physics":0.0615,"woot":0.1158},"lg_p50":{"adv_math":0.2916,"cs":0.4401,"interm_math":0.2285,"intro_math":0.1214,"physics":0.1702,"woot":0.283},"lg_p75":{"adv_math":0.4444,"cs":0.6073,"interm_math":0.4239,"intro_math":0.2991,"physics":0.3771,"woot":0.4768}};
+const TIER_STATS = {"wps_p25":{"adv_math":1.2857,"cs":0.7426,"interm_math":1.0128,"intro_math":1.1562,"physics":1.4014,"woot":1.2857},"wps_p50":{"adv_math":1.6765,"cs":1.0,"interm_math":1.4262,"intro_math":1.8205,"physics":1.9602,"woot":1.6765},"wps_p75":{"adv_math":2.1463,"cs":1.3984,"interm_math":2.1,"intro_math":2.5938,"physics":2.4452,"woot":2.1463},"wpq_p25":{"adv_math":0.0596,"cs":0.033,"interm_math":0.0476,"intro_math":0.0391,"physics":0.0578,"woot":0.0596},"wpq_p50":{"adv_math":0.0848,"cs":0.0505,"interm_math":0.0717,"intro_math":0.0608,"physics":0.0858,"woot":0.0848},"wpq_p75":{"adv_math":0.1239,"cs":0.0744,"interm_math":0.1112,"intro_math":0.0876,"physics":0.125,"woot":0.1239},"cov1_p25":{"adv_math":0.5,"cs":0.3582,"interm_math":0.451,"intro_math":0.5244,"physics":0.5619,"woot":0.5},"cov1_p50":{"adv_math":0.5849,"cs":0.4545,"interm_math":0.575,"intro_math":0.6744,"physics":0.6472,"woot":0.5849},"cov1_p75":{"adv_math":0.7273,"cs":0.5901,"interm_math":0.7069,"intro_math":0.7838,"physics":0.7517,"woot":0.7273},"cov2_p25":{"adv_math":0.3,"cs":0.1698,"interm_math":0.2337,"intro_math":0.2727,"physics":0.3333,"woot":0.3},"cov2_p50":{"adv_math":0.3793,"cs":0.2321,"interm_math":0.3458,"intro_math":0.4118,"physics":0.4249,"woot":0.3793},"cov2_p75":{"adv_math":0.4762,"cs":0.3282,"interm_math":0.4622,"intro_math":0.5556,"physics":0.5374,"woot":0.4762},"gap_p25":{"adv_math":43.0,"cs":55.0,"interm_math":34.0,"intro_math":31.0,"physics":43.375,"woot":43.0},"gap_p50":{"adv_math":64.0,"cs":82.25,"interm_math":47.0,"intro_math":44.0,"physics":57.75,"woot":64.0},"gap_p75":{"adv_math":94.0,"cs":107.625,"interm_math":69.5,"intro_math":65.0,"physics":78.625,"woot":94.0},"praise_p75":{"adv_math":0.0513,"cs":0.0,"interm_math":0.0526,"intro_math":0.0732,"physics":0.0936,"woot":0.0513},"praise_p90":{"adv_math":0.0863,"cs":0.0683,"interm_math":0.1206,"intro_math":0.162,"physics":0.2212,"woot":0.0863},"lg_p25":{"adv_math":0.1934,"cs":0.2796,"interm_math":0.0744,"intro_math":0.0,"physics":0.0615,"woot":0.1934},"lg_p50":{"adv_math":0.3198,"cs":0.4401,"interm_math":0.2049,"intro_math":0.1294,"physics":0.1702,"woot":0.3198},"lg_p75":{"adv_math":0.4692,"cs":0.6073,"interm_math":0.3765,"intro_math":0.3259,"physics":0.3771,"woot":0.4692}};
 
 function scoreMetric(val, p25, p50, p75, invert = false, maxPts = 20) {
   if (val == null || isNaN(val)) return maxPts * 0.5;
@@ -1530,16 +1530,18 @@ function scoreSession(whispers, numStudents, numQueued, courseId, isWeek1 = fals
   const activeMinutes = durationMin;
   const { longGapCount, maxGap, longGapPct } = getLongGapStats(gapsSec, activeSec);
 
+  // WOOT uses adv_math benchmarks (no WOOT training data available)
+  const scoringTier = tier === "woot" ? "adv_math" : tier;
   const t = TIER_STATS;
-  const sVol   = scoreMetric(wps, t.wps_p25[tier], t.wps_p50[tier], t.wps_p75[tier], false, 20);
-  const sQueue = scoreMetric(wpq, t.wpq_p25[tier], t.wpq_p50[tier], t.wpq_p75[tier], false, 20);
-  const sCov1  = scoreMetric(coverage1plus, t.cov1_p25[tier], t.cov1_p50[tier], t.cov1_p75[tier], false, 10);
-  const sCov2  = scoreMetric(coverage2plus, t.cov2_p25[tier], t.cov2_p50[tier], t.cov2_p75[tier], false, 10);
-  const sPace  = scoreMetric(medianGap, t.gap_p25[tier], t.gap_p50[tier], t.gap_p75[tier], true, 30);
-  const sLongGap = scoreMetric(longGapPct, t.lg_p25[tier], t.lg_p50[tier], t.lg_p75[tier], true, 10);
+  const sVol   = scoreMetric(wps, t.wps_p25[scoringTier], t.wps_p50[scoringTier], t.wps_p75[scoringTier], false, 20);
+  const sQueue = scoreMetric(wpq, t.wpq_p25[scoringTier], t.wpq_p50[scoringTier], t.wpq_p75[scoringTier], false, 20);
+  const sCov1  = scoreMetric(coverage1plus, t.cov1_p25[scoringTier], t.cov1_p50[scoringTier], t.cov1_p75[scoringTier], false, 10);
+  const sCov2  = scoreMetric(coverage2plus, t.cov2_p25[scoringTier], t.cov2_p50[scoringTier], t.cov2_p75[scoringTier], false, 10);
+  const sPace  = scoreMetric(medianGap, t.gap_p25[scoringTier], t.gap_p50[scoringTier], t.gap_p75[scoringTier], true, 30);
+  const sLongGap = scoreMetric(longGapPct, t.lg_p25[scoringTier], t.lg_p50[scoringTier], t.lg_p75[scoringTier], true, 10);
   const total  = sVol + sQueue + sCov1 + sCov2 + sPace + sLongGap;
 
-  const flags = getFlags(pctPraise, t.praise_p75[tier], t.praise_p90[tier], pctIdle, nChains,
+  const flags = getFlags(pctPraise, t.praise_p75[scoringTier], t.praise_p90[scoringTier], pctIdle, nChains,
                          longGapCount, longGapPct, maxGap, activeMinutes, courseId);
 
   const avgChar = clipped.length ? +(clipped.reduce((s,r) => s + (r.char_count||0), 0) / clipped.length).toFixed(1) : 0;
@@ -1731,12 +1733,18 @@ function AssistantQualityTab() {
   const handleShelfPick = (item) => {
     const text = toCSV(item.rows);
     setWhisperSources(prev => {
-      // Toggle: if already in list, remove; else add
       const exists = prev.find(s => s.name === item.label);
       if (exists) return prev.filter(s => s.name !== item.label);
       return [...prev, { text, name: item.label }];
     });
     setResults(null); setError("");
+  };
+
+  const handleModeSwitch = (newMode) => {
+    setWhisperMode(newMode);
+    setWhisperSources([]);
+    setResults(null);
+    setError("");
   };
 
   const handleScore = () => {
@@ -1836,6 +1844,34 @@ function AssistantQualityTab() {
 
   const activeData = results?.assistants.find(a => a.assistant === activeAsst);
 
+  // Growth view state
+  const [viewMode, setViewMode] = useState("standard"); // "standard" | "growth"
+  const [cutoffDate, setCutoffDate] = useState("");
+
+  // Date range from results
+  const dateRange = useMemo(() => {
+    if (!results) return { min: "", max: "" };
+    const dates = results.assistants.flatMap(a => a.sessions.map(s => s.date)).sort();
+    return { min: dates[0] || "", max: dates[dates.length-1] || "" };
+  }, [results]);
+
+  // Growth split helper
+  const splitSessions = (sessions, cutoff) => {
+    const before = sessions.filter(s => s.date < cutoff);
+    const after  = sessions.filter(s => s.date >= cutoff);
+    return { before, after };
+  };
+
+  const periodScore = (sessions) => {
+    if (!sessions.length) return null;
+    return +(sessions.reduce((n, s) => n + s.result.scores.total, 0) / sessions.length).toFixed(1);
+  };
+
+  const periodDimAvg = (sessions, key) => {
+    if (!sessions.length) return null;
+    return +(sessions.reduce((n, s) => n + (s.result.scores[key] ?? 0), 0) / sessions.length).toFixed(1);
+  };
+
   const filteredSessions = useMemo(() => {
     if (!activeData) return [];
     let ss = [...activeData.sessions];
@@ -1909,8 +1945,8 @@ function AssistantQualityTab() {
               <div style={{ ...sx.label }}>WhisperLog(s)</div>
               {shelf.length > 0 && (
                 <>
-                  <button style={sx.btn(whisperMode === "shelf")} onClick={() => setWhisperMode("shelf")}>From Shelf</button>
-                  <button style={sx.btn(whisperMode === "upload")} onClick={() => setWhisperMode("upload")}>Upload</button>
+                  <button style={sx.btn(whisperMode === "shelf")} onClick={() => handleModeSwitch("shelf")}>From Shelf</button>
+                  <button style={sx.btn(whisperMode === "upload")} onClick={() => handleModeSwitch("upload")}>Upload</button>
                 </>
               )}
             </div>
@@ -2061,9 +2097,123 @@ function AssistantQualityTab() {
             ↓ Assistant summary
           </button>
         </div>
-        <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
+        {/* View mode toggle + cutoff date */}
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
+          <button onClick={() => setViewMode("standard")} style={{ ...sx.btn(viewMode === "standard"), fontSize: 11 }}>📊 Standard</button>
+          <button onClick={() => setViewMode("growth")} style={{ ...sx.btn(viewMode === "growth"), fontSize: 11 }}>📈 Growth View</button>
+          {viewMode === "growth" && (
+            <>
+              <span style={{ fontSize: 11, color: C.textMuted, fontFamily: FONT_UI, marginLeft: 8 }}>Check-in date:</span>
+              <input type="date" value={cutoffDate}
+                min={dateRange.min} max={dateRange.max}
+                onChange={e => setCutoffDate(e.target.value)}
+                style={{ padding: "4px 8px", borderRadius: 5, border: `1px solid ${C.border}`,
+                  fontSize: 11, fontFamily: FONT_UI, background: C.surface, color: C.text }} />
+              {dateRange.min && (
+                <span style={{ fontSize: 10, color: C.textDim, fontFamily: FONT_UI }}>
+                  Data: {dateRange.min} → {dateRange.max}
+                </span>
+              )}
+            </>
+          )}
+        </div>
 
-          {/* Left: assistant roster */}
+        {/* ── GROWTH VIEW ── */}
+        {viewMode === "growth" && (
+          <div>
+            {!cutoffDate ? (
+              <div style={{ textAlign: "center", padding: "40px 0", color: C.textMuted, fontSize: 13, fontFamily: FONT_UI }}>
+                Select a check-in date above to see before/after growth comparison.
+              </div>
+            ) : (
+              <div>
+                {results.assistants.map(a => {
+                  const { before, after } = splitSessions(a.sessions, cutoffDate);
+                  const scoreBefore = periodScore(before);
+                  const scoreAfter  = periodScore(after);
+                  const delta = scoreBefore !== null && scoreAfter !== null ? +(scoreAfter - scoreBefore).toFixed(1) : null;
+                  const dims = [
+                    { key: "volume",  label: "Volume",   max: 20 },
+                    { key: "queue",   label: "Queue",    max: 20 },
+                    { key: "cov1",    label: "Broad",    max: 10 },
+                    { key: "cov2",    label: "Deep",     max: 10 },
+                    { key: "pacing",  label: "Pacing",   max: 30 },
+                    { key: "longGap", label: "Long Gap", max: 10 },
+                  ];
+                  const topColor = delta === null ? C.textMuted : delta > 0 ? C.accent : delta < 0 ? C.danger : C.warn;
+                  return (
+                    <div key={a.assistant} style={{ ...sx.card, marginBottom: 12, borderTop: `3px solid ${topColor}` }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+                        {/* Name + delta */}
+                        <div style={{ minWidth: 140 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: C.text, fontFamily: FONT_UI }}>{a.assistant}</div>
+                          <div style={{ fontSize: 10, color: C.textMuted, fontFamily: FONT_UI, marginTop: 2 }}>
+                            {before.length} before · {after.length} after
+                          </div>
+                        </div>
+                        {/* Score badges */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <div style={{ textAlign: "center" }}>
+                            <div style={{ ...sx.label, marginBottom: 2 }}>Before</div>
+                            <div style={{ fontSize: 20, fontWeight: 700, color: scoreBefore !== null ? (scoreBefore >= 80 ? C.accent : scoreBefore >= 60 ? C.warn : C.danger) : C.textDim, fontFamily: FONT }}>
+                              {scoreBefore !== null ? scoreBefore : "—"}
+                            </div>
+                            <div style={{ fontSize: 9, color: C.textDim, fontFamily: FONT_UI }}>{before.length} session{before.length !== 1 ? "s" : ""}</div>
+                          </div>
+                          <div style={{ fontSize: 18, color: C.textDim }}>→</div>
+                          <div style={{ textAlign: "center" }}>
+                            <div style={{ ...sx.label, marginBottom: 2 }}>After</div>
+                            <div style={{ fontSize: 20, fontWeight: 700, color: scoreAfter !== null ? (scoreAfter >= 80 ? C.accent : scoreAfter >= 60 ? C.warn : C.danger) : C.textDim, fontFamily: FONT }}>
+                              {scoreAfter !== null ? scoreAfter : "—"}
+                            </div>
+                            <div style={{ fontSize: 9, color: C.textDim, fontFamily: FONT_UI }}>{after.length} session{after.length !== 1 ? "s" : ""}</div>
+                          </div>
+                          {delta !== null && (
+                            <div style={{ textAlign: "center", padding: "4px 10px", borderRadius: 20,
+                              background: `${topColor}18`, border: `1px solid ${topColor}44` }}>
+                              <div style={{ fontSize: 16, fontWeight: 700, color: topColor, fontFamily: FONT }}>
+                                {delta > 0 ? "+" : ""}{delta}
+                              </div>
+                              <div style={{ fontSize: 9, color: topColor, fontFamily: FONT_UI, fontWeight: 700 }}>
+                                {delta > 0 ? "▲ Improved" : delta < 0 ? "▼ Declined" : "No change"}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        {/* Dimension breakdown */}
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginLeft: "auto" }}>
+                          {dims.map(({ key, label, max }) => {
+                            const bVal = periodDimAvg(before, key);
+                            const aVal = periodDimAvg(after, key);
+                            const dimDelta = bVal !== null && aVal !== null ? +(aVal - bVal).toFixed(1) : null;
+                            const dimColor = dimDelta === null ? C.textDim : dimDelta > 0 ? C.accent : dimDelta < 0 ? C.danger : C.warn;
+                            return (
+                              <div key={key} style={{ textAlign: "center", background: C.surfaceAlt,
+                                borderRadius: 6, padding: "4px 8px", border: `1px solid ${C.border}`,
+                                borderTop: `2px solid ${dimColor}`, minWidth: 52 }}>
+                                <div style={{ ...sx.label, marginBottom: 1, fontSize: 9 }}>{label}</div>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: dimColor, fontFamily: FONT }}>
+                                  {dimDelta !== null ? `${dimDelta > 0 ? "+" : ""}${dimDelta}` : "—"}
+                                </div>
+                                <div style={{ fontSize: 9, color: C.textDim, fontFamily: FONT_UI }}>
+                                  {bVal !== null ? bVal : "—"} → {aVal !== null ? aVal : "—"}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── STANDARD VIEW ── */}
+        {viewMode === "standard" && (
+        <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
           <div style={{ ...sx.card, width: 220, flexShrink: 0, padding: 0, overflow: "hidden" }}>
             <div style={{ padding: "10px 14px", background: C.navy, borderBottom: `1px solid ${C.navyDark}` }}>
               <span style={{ fontFamily: FONT_UI, fontWeight: 700, color: "#ffffff", fontSize: 12 }}>Assistants</span>
@@ -2198,6 +2348,7 @@ function AssistantQualityTab() {
             </div>
           )}
         </div>
+        )}
         </>
       )}
     </div>
