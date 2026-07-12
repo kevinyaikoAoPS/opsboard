@@ -2267,23 +2267,34 @@ function AssistantQualityTab() {
                 {/* Dimension averages */}
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginLeft: "auto" }}>
                   {[
-                    { key: "volume",  label: "Volume",   max: 20 },
-                    { key: "queue",   label: "Queue",    max: 20 },
-                    { key: "cov1",    label: "Broad Cov",max: 10 },
-                    { key: "cov2",    label: "Deep Cov", max: 10 },
-                    { key: "pacing",  label: "Pacing",   max: 30 },
-                    { key: "longGap", label: "Long Gap", max: 10 },
-                  ].map(({ key, label, max }) => {
+                    { key: "volume",  label: "Volume",   max: 20, raw: s => s.result.wps?.toFixed(2),        unit: "/student" },
+                    { key: "queue",   label: "Queue",    max: 20, raw: s => (s.result.wpq*100)?.toFixed(1),  unit: " per 100q" },
+                    { key: "cov1",    label: "Broad Cov",max: 10, raw: s => ((s.result.coverage1plus||0)*100).toFixed(0), unit: "% reached" },
+                    { key: "cov2",    label: "Deep Cov", max: 10, raw: s => ((s.result.coverage2plus||0)*100).toFixed(0), unit: "% 2x+" },
+                    { key: "pacing",  label: "Pacing",   max: 30, raw: s => s.result.medianGap?.toFixed(0),  unit: "s median" },
+                    { key: "longGap", label: "Long Gap", max: 10, raw: s => ((s.result.longGapPct||0)*100).toFixed(0), unit: "% in gaps" },
+                  ].map(({ key, label, max, raw, unit }) => {
                     const vals = activeData.sessions.map(s => s.result.scores[key] ?? 0);
                     const avg = vals.reduce((a,b)=>a+b,0)/vals.length;
+                    const rawVals = activeData.sessions.map(s => parseFloat(raw(s))).filter(v => !isNaN(v));
+                    const rawAvg = rawVals.length ? rawVals.reduce((a,b)=>a+b,0)/rawVals.length : null;
                     const color = avg < max * 0.4 ? C.danger : avg < max * 0.7 ? C.warn : C.accent;
                     return (
                       <div key={key} style={{ textAlign: "center", background: C.surfaceAlt,
-                        borderRadius: 6, padding: "5px 10px", border: `1px solid ${C.border}`, borderTop: `2px solid ${color}` }}>
+                        borderRadius: 6, padding: "5px 10px", border: `1px solid ${C.border}`, borderTop: `2px solid ${color}`, minWidth: 64 }}>
                         <div style={{ ...sx.label, marginBottom: 1 }}>{label}</div>
                         <div style={{ fontSize: 13, fontWeight: 700, color, fontFamily: FONT }}>
                           {avg.toFixed(1)}<span style={{ fontSize: 10, fontWeight: 400, color: C.textDim }}>/{max}</span>
                         </div>
+                        {rawAvg !== null && (
+                          <div style={{ fontSize: 9, color: C.textMuted, fontFamily: FONT_UI, marginTop: 2, whiteSpace: "nowrap" }}>
+                            {key === "volume" ? rawAvg.toFixed(2) :
+                             key === "pacing" ? `${Math.round(rawAvg)}s` :
+                             key === "queue"  ? rawAvg.toFixed(1) :
+                             `${Math.round(rawAvg)}%`}
+                            <span style={{ color: C.textDim }}> {unit}</span>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
