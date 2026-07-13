@@ -1414,15 +1414,15 @@ function getFlags(pctPraise, praise_p75, praise_p90, pctIdle, nChains, longGapCo
 
   // Long gap flags — based on % of active session in gaps > 5 min
   if (longGapPct >= 0.40)
-    flags.push({ level: "critical", text: (longGapPct*100).toFixed(0) + "% of session in long gaps (max " + Math.round(maxGap/60) + "m " + Math.round(maxGap - Math.floor(maxGap/60)*60) + "s)" });
+    flags.push({ level: "critical", text: `${(longGapPct*100).toFixed(0)}% of session in long gaps (max ${Math.round(maxGap/60)}m ${Math.round(maxGap%60)}s)` });
   else if (longGapPct >= 0.20 || (longGapCount >= 3 && longGapPct > 0))
-    flags.push({ level: "warning", text: (longGapPct*100).toFixed(0) + "% of session in long gaps (" + longGapCount + " gap" + (longGapCount !== 1 ? "s" : "") + " over 5 min)" });
+    flags.push({ level: "warning", text: `${(longGapPct*100).toFixed(0)}% of session in long gaps (${longGapCount} gap${longGapCount !== 1 ? "s" : ""} over 5 min)` });
 
   // Praise blast flags
   if (pctPraise > praise_p90)
-    flags.push({ level: "warning", text: "High praise blast rate (" + (pctPraise*100).toFixed(0) + "%)" });
+    flags.push({ level: "warning", text: `High praise blast rate (${(pctPraise*100).toFixed(0)}%)` });
   else if (pctPraise > praise_p75)
-    flags.push({ level: "note", text: "Elevated praise blast rate (" + (pctPraise*100).toFixed(0) + "%)" });
+    flags.push({ level: "note", text: `Elevated praise blast rate (${(pctPraise*100).toFixed(0)}%)` });
 
   return flags;
 }
@@ -1681,7 +1681,7 @@ function SessionScoreCard({ result, sessionLabel }) {
               { label: "Deep Coverage (2+)", value: (coverage2plus * 100).toFixed(0) + "%" },
               { label: "Median Gap", value: medianGap + "s" },
               { label: "Avg Char Count", value: avgChar },
-              { label: "Max Gap", value: maxGap >= 60 ? Math.floor(maxGap/60) + "m " + Math.round(maxGap - Math.floor(maxGap/60)*60) + "s" : `${maxGap}s`, warn: maxGap > 300 },
+              { label: "Max Gap", value: maxGap >= 60 ? `${Math.floor(maxGap/60)}m ${Math.round(maxGap%60)}s` : `${maxGap}s`, warn: maxGap > 300 },
               { label: "Long Gaps (5+ min)", value: longGapCount, warn: longGapCount >= 1 },
               { label: "% Session in Long Gaps", value: (longGapPct * 100).toFixed(1) + "%", warn: longGapPct >= 0.20 },
               { label: "Unique Recipients", value: `${uniqueRecipients} / ${numStudents}` },
@@ -1870,6 +1870,22 @@ function AssistantQualityTab() {
   const periodDimAvg = (sessions, key) => {
     if (!sessions.length) return null;
     return +(sessions.reduce((n, s) => n + (s.result.scores[key] ?? 0), 0) / sessions.length).toFixed(1);
+  };
+
+  // Raw underlying stat behind each score dimension (for growth view)
+  const DIM_RAW = {
+    volume:  { get: r => r.wps ?? 0,                    fmt: v => v.toFixed(2),        unit: "/stu" },
+    queue:   { get: r => (r.wpq ?? 0) * 100,            fmt: v => v.toFixed(1),        unit: "/100q" },
+    cov1:    { get: r => (r.coverage1plus ?? 0) * 100,  fmt: v => Math.round(v) + "%", unit: "reached" },
+    cov2:    { get: r => (r.coverage2plus ?? 0) * 100,  fmt: v => Math.round(v) + "%", unit: "2x+" },
+    pacing:  { get: r => r.medianGap ?? 0,              fmt: v => Math.round(v) + "s", unit: "med gap" },
+    longGap: { get: r => (r.longGapPct ?? 0) * 100,     fmt: v => Math.round(v) + "%", unit: "in gaps" },
+  };
+
+  const periodRawAvg = (sessions, key) => {
+    if (!sessions.length || !DIM_RAW[key]) return null;
+    const get = DIM_RAW[key].get;
+    return sessions.reduce((n, s) => n + get(s.result), 0) / sessions.length;
   };
 
   const filteredSessions = useMemo(() => {
@@ -2132,72 +2148,88 @@ function AssistantQualityTab() {
                   const scoreBefore = periodScore(before);
                   const scoreAfter  = periodScore(after);
                   const delta = scoreBefore !== null && scoreAfter !== null ? +(scoreAfter - scoreBefore).toFixed(1) : null;
+                  const dims = [
+                    { key: "volume",  label: "Volume",   max: 20 },
+                    { key: "queue",   label: "Queue",    max: 20 },
+                    { key: "cov1",    label: "Broad",    max: 10 },
+                    { key: "cov2",    label: "Deep",     max: 10 },
+                    { key: "pacing",  label: "Pacing",   max: 30 },
+                    { key: "longGap", label: "Long Gap", max: 10 },
+                  ];
                   const topColor = delta === null ? C.textMuted : delta > 0 ? C.accent : delta < 0 ? C.danger : C.warn;
                   return (
                     <div key={a.assistant} style={{ ...sx.card, marginBottom: 12, borderTop: `3px solid ${topColor}` }}>
-                      <div style={{ display: "flex", alignItems: "flex-start", gap: 20, flexWrap: "wrap" }}>
-                        {/* Name + scores */}
-                        <div style={{ minWidth: 180, flexShrink: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: C.text, fontFamily: FONT_UI, marginBottom: 4 }}>{a.assistant}</div>
-                          <div style={{ fontSize: 10, color: C.textMuted, fontFamily: FONT_UI, marginBottom: 10 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+                        {/* Name + delta */}
+                        <div style={{ minWidth: 140 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: C.text, fontFamily: FONT_UI }}>{a.assistant}</div>
+                          <div style={{ fontSize: 10, color: C.textMuted, fontFamily: FONT_UI, marginTop: 2 }}>
                             {before.length} before · {after.length} after
                           </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                            <div style={{ textAlign: "center" }}>
-                              <div style={{ ...sx.label, marginBottom: 2 }}>Before</div>
-                              <div style={{ fontSize: 22, fontWeight: 700, color: scoreBefore !== null ? (scoreBefore >= 80 ? C.accent : scoreBefore >= 60 ? C.warn : C.danger) : C.textDim, fontFamily: FONT }}>
-                                {scoreBefore !== null ? scoreBefore : "—"}
-                              </div>
+                        </div>
+                        {/* Score badges */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <div style={{ textAlign: "center" }}>
+                            <div style={{ ...sx.label, marginBottom: 2 }}>Before</div>
+                            <div style={{ fontSize: 20, fontWeight: 700, color: scoreBefore !== null ? (scoreBefore >= 80 ? C.accent : scoreBefore >= 60 ? C.warn : C.danger) : C.textDim, fontFamily: FONT }}>
+                              {scoreBefore !== null ? scoreBefore : "—"}
                             </div>
-                            <div style={{ fontSize: 18, color: C.textDim }}>→</div>
-                            <div style={{ textAlign: "center" }}>
-                              <div style={{ ...sx.label, marginBottom: 2 }}>After</div>
-                              <div style={{ fontSize: 22, fontWeight: 700, color: scoreAfter !== null ? (scoreAfter >= 80 ? C.accent : scoreAfter >= 60 ? C.warn : C.danger) : C.textDim, fontFamily: FONT }}>
-                                {scoreAfter !== null ? scoreAfter : "—"}
-                              </div>
-                            </div>
-                            {delta !== null && (
-                              <div style={{ textAlign: "center", padding: "4px 10px", borderRadius: 20,
-                                background: `${topColor}18`, border: `1px solid ${topColor}44` }}>
-                                <div style={{ fontSize: 16, fontWeight: 700, color: topColor, fontFamily: FONT }}>
-                                  {delta > 0 ? "+" : ""}{delta}
-                                </div>
-                                <div style={{ fontSize: 9, color: topColor, fontFamily: FONT_UI, fontWeight: 700 }}>
-                                  {delta > 0 ? "▲ Improved" : delta < 0 ? "▼ Declined" : "No change"}
-                                </div>
-                              </div>
-                            )}
+                            <div style={{ fontSize: 9, color: C.textDim, fontFamily: FONT_UI }}>{before.length} session{before.length !== 1 ? "s" : ""}</div>
                           </div>
+                          <div style={{ fontSize: 18, color: C.textDim }}>→</div>
+                          <div style={{ textAlign: "center" }}>
+                            <div style={{ ...sx.label, marginBottom: 2 }}>After</div>
+                            <div style={{ fontSize: 20, fontWeight: 700, color: scoreAfter !== null ? (scoreAfter >= 80 ? C.accent : scoreAfter >= 60 ? C.warn : C.danger) : C.textDim, fontFamily: FONT }}>
+                              {scoreAfter !== null ? scoreAfter : "—"}
+                            </div>
+                            <div style={{ fontSize: 9, color: C.textDim, fontFamily: FONT_UI }}>{after.length} session{after.length !== 1 ? "s" : ""}</div>
+                          </div>
+                          {delta !== null && (
+                            <div style={{ textAlign: "center", padding: "4px 10px", borderRadius: 20,
+                              background: `${topColor}18`, border: `1px solid ${topColor}44` }}>
+                              <div style={{ fontSize: 16, fontWeight: 700, color: topColor, fontFamily: FONT }}>
+                                {delta > 0 ? "+" : ""}{delta}
+                              </div>
+                              <div style={{ fontSize: 9, color: topColor, fontFamily: FONT_UI, fontWeight: 700 }}>
+                                {delta > 0 ? "▲ Improved" : delta < 0 ? "▼ Declined" : "No change"}
+                              </div>
+                            </div>
+                          )}
                         </div>
                         {/* Dimension breakdown */}
                         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginLeft: "auto" }}>
-                          {[
-                            { key: "volume",  label: "Volume",   max: 20 },
-                            { key: "queue",   label: "Queue",    max: 20 },
-                            { key: "cov1",    label: "Broad",    max: 10 },
-                            { key: "cov2",    label: "Deep",     max: 10 },
-                            { key: "pacing",  label: "Pacing",   max: 30 },
-                            { key: "longGap", label: "Long Gap", max: 10 },
-                          ].map(({ key, label, max }) => {
+                          {dims.map(({ key, label, max }) => {
                             const bVal = periodDimAvg(before, key);
                             const aVal = periodDimAvg(after, key);
                             const dimDelta = bVal !== null && aVal !== null ? +(aVal - bVal).toFixed(1) : null;
                             const dimColor = dimDelta === null ? C.textDim : dimDelta > 0 ? C.accent : dimDelta < 0 ? C.danger : C.warn;
                             return (
                               <div key={key} style={{ textAlign: "center", background: C.surfaceAlt,
-                                borderRadius: 6, padding: "4px 8px", border: "1px solid " + C.border,
-                                borderTop: "2px solid " + dimColor, minWidth: 52 }}>
+                                borderRadius: 6, padding: "4px 8px", border: `1px solid ${C.border}`,
+                                borderTop: `2px solid ${dimColor}`, minWidth: 62 }}>
                                 <div style={{ ...sx.label, marginBottom: 1, fontSize: 9 }}>{label}</div>
                                 <div style={{ fontSize: 11, fontWeight: 700, color: dimColor, fontFamily: FONT }}>
-                                  {dimDelta !== null ? (dimDelta > 0 ? "+" : "") + dimDelta : "\u2014"}
+                                  {dimDelta !== null ? `${dimDelta > 0 ? "+" : ""}${dimDelta}` : "—"}
                                 </div>
                                 <div style={{ fontSize: 9, color: C.textDim, fontFamily: FONT_UI }}>
-                                  {bVal !== null ? bVal : "\u2014"} {"\u2192"} {aVal !== null ? aVal : "\u2014"}
+                                  {bVal !== null ? bVal : "—"} → {aVal !== null ? aVal : "—"}
+                                  <span style={{ color: C.textDim }}> pts</span>
                                 </div>
+                                {(() => {
+                                  const bRaw = periodRawAvg(before, key);
+                                  const aRaw = periodRawAvg(after, key);
+                                  const cfg = DIM_RAW[key];
+                                  if (!cfg) return null;
+                                  return (
+                                    <div style={{ fontSize: 9, color: C.textMuted, fontFamily: FONT_UI, marginTop: 1, whiteSpace: "nowrap" }}>
+                                      {bRaw !== null ? cfg.fmt(bRaw) : "—"} → {aRaw !== null ? cfg.fmt(aRaw) : "—"}
+                                      <span style={{ color: C.textDim }}> {cfg.unit}</span>
+                                    </div>
+                                  );
+                                })()}
                               </div>
                             );
                           })}
-                        </div>
                         </div>
                       </div>
                     </div>
@@ -2288,7 +2320,7 @@ function AssistantQualityTab() {
                             {key === "volume" ? rawAvg.toFixed(2) :
                              key === "pacing" ? `${Math.round(rawAvg)}s` :
                              key === "queue"  ? rawAvg.toFixed(1) :
-                             Math.round(rawAvg) + "%"}
+                             `${Math.round(rawAvg)}%`}
                             <span style={{ color: C.textDim }}> {unit}</span>
                           </div>
                         )}
