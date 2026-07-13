@@ -2159,35 +2159,35 @@ function AssistantQualityTab() {
                   const topColor = delta === null ? C.textMuted : delta > 0 ? C.accent : delta < 0 ? C.danger : C.warn;
                   return (
                     <div key={a.assistant} style={{ ...sx.card, marginBottom: 12, borderTop: `3px solid ${topColor}` }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-                        {/* Name + delta */}
+                      {/* Header: name + score summary */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", justifyContent: "space-between" }}>
                         <div style={{ minWidth: 140 }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: C.text, fontFamily: FONT_UI }}>{a.assistant}</div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: C.text, fontFamily: FONT_UI }}>{a.assistant}</div>
                           <div style={{ fontSize: 10, color: C.textMuted, fontFamily: FONT_UI, marginTop: 2 }}>
                             {before.length} before · {after.length} after
                           </div>
                         </div>
                         {/* Score badges */}
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                           <div style={{ textAlign: "center" }}>
                             <div style={{ ...sx.label, marginBottom: 2 }}>Before</div>
-                            <div style={{ fontSize: 20, fontWeight: 700, color: scoreBefore !== null ? (scoreBefore >= 80 ? C.accent : scoreBefore >= 60 ? C.warn : C.danger) : C.textDim, fontFamily: FONT }}>
+                            <div style={{ fontSize: 22, fontWeight: 700, color: scoreBefore !== null ? (scoreBefore >= 80 ? C.accent : scoreBefore >= 60 ? C.warn : C.danger) : C.textDim, fontFamily: FONT }}>
                               {scoreBefore !== null ? scoreBefore : "—"}
                             </div>
                             <div style={{ fontSize: 9, color: C.textDim, fontFamily: FONT_UI }}>{before.length} session{before.length !== 1 ? "s" : ""}</div>
                           </div>
-                          <div style={{ fontSize: 18, color: C.textDim }}>→</div>
+                          <div style={{ fontSize: 20, color: C.textDim }}>→</div>
                           <div style={{ textAlign: "center" }}>
                             <div style={{ ...sx.label, marginBottom: 2 }}>After</div>
-                            <div style={{ fontSize: 20, fontWeight: 700, color: scoreAfter !== null ? (scoreAfter >= 80 ? C.accent : scoreAfter >= 60 ? C.warn : C.danger) : C.textDim, fontFamily: FONT }}>
+                            <div style={{ fontSize: 22, fontWeight: 700, color: scoreAfter !== null ? (scoreAfter >= 80 ? C.accent : scoreAfter >= 60 ? C.warn : C.danger) : C.textDim, fontFamily: FONT }}>
                               {scoreAfter !== null ? scoreAfter : "—"}
                             </div>
                             <div style={{ fontSize: 9, color: C.textDim, fontFamily: FONT_UI }}>{after.length} session{after.length !== 1 ? "s" : ""}</div>
                           </div>
                           {delta !== null && (
-                            <div style={{ textAlign: "center", padding: "4px 10px", borderRadius: 20,
-                              background: `${topColor}18`, border: `1px solid ${topColor}44` }}>
-                              <div style={{ fontSize: 16, fontWeight: 700, color: topColor, fontFamily: FONT }}>
+                            <div style={{ textAlign: "center", padding: "6px 14px", borderRadius: 20,
+                              background: `${topColor}18`, border: `1px solid ${topColor}44`, marginLeft: 4 }}>
+                              <div style={{ fontSize: 18, fontWeight: 700, color: topColor, fontFamily: FONT }}>
                                 {delta > 0 ? "+" : ""}{delta}
                               </div>
                               <div style={{ fontSize: 9, color: topColor, fontFamily: FONT_UI, fontWeight: 700 }}>
@@ -2196,41 +2196,65 @@ function AssistantQualityTab() {
                             </div>
                           )}
                         </div>
-                        {/* Dimension breakdown */}
-                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginLeft: "auto" }}>
-                          {dims.map(({ key, label, max }) => {
-                            const bVal = periodDimAvg(before, key);
-                            const aVal = periodDimAvg(after, key);
-                            const dimDelta = bVal !== null && aVal !== null ? +(aVal - bVal).toFixed(1) : null;
-                            const dimColor = dimDelta === null ? C.textDim : dimDelta > 0 ? C.accent : dimDelta < 0 ? C.danger : C.warn;
-                            return (
-                              <div key={key} style={{ textAlign: "center", background: C.surfaceAlt,
-                                borderRadius: 6, padding: "4px 8px", border: `1px solid ${C.border}`,
-                                borderTop: `2px solid ${dimColor}`, minWidth: 62 }}>
-                                <div style={{ ...sx.label, marginBottom: 1, fontSize: 9 }}>{label}</div>
-                                <div style={{ fontSize: 11, fontWeight: 700, color: dimColor, fontFamily: FONT }}>
-                                  {dimDelta !== null ? `${dimDelta > 0 ? "+" : ""}${dimDelta}` : "—"}
-                                </div>
-                                <div style={{ fontSize: 9, color: C.textDim, fontFamily: FONT_UI }}>
-                                  {bVal !== null ? bVal : "—"} → {aVal !== null ? aVal : "—"}
-                                  <span style={{ color: C.textDim }}> pts</span>
-                                </div>
-                                {(() => {
-                                  const bRaw = periodRawAvg(before, key);
-                                  const aRaw = periodRawAvg(after, key);
-                                  const cfg = DIM_RAW[key];
-                                  if (!cfg) return null;
-                                  return (
-                                    <div style={{ fontSize: 9, color: C.textMuted, fontFamily: FONT_UI, marginTop: 1, whiteSpace: "nowrap" }}>
-                                      {bRaw !== null ? cfg.fmt(bRaw) : "—"} → {aRaw !== null ? cfg.fmt(aRaw) : "—"}
-                                      <span style={{ color: C.textDim }}> {cfg.unit}</span>
-                                    </div>
-                                  );
-                                })()}
-                              </div>
-                            );
-                          })}
+                      </div>
+
+                      {/* Dimension breakdown — vertical full-width rows */}
+                      <div style={{ marginTop: 16, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "120px 1fr 1fr 100px",
+                          gap: 10, padding: "8px 14px", background: C.navy, borderBottom: `1px solid ${C.border}` }}>
+                          {[["Dimension","left"],["Underlying stat","center"],["Score points","center"],["Change","right"]].map(([h, align]) => (
+                            <div key={h} style={{ fontSize: 10, color: "#9ab0c8", textTransform: "uppercase",
+                              letterSpacing: "0.06em", fontFamily: FONT_UI, textAlign: align, fontWeight: 700 }}>{h}</div>
+                          ))}
                         </div>
+                        {dims.map(({ key, label, max }, idx) => {
+                          const bVal = periodDimAvg(before, key);
+                          const aVal = periodDimAvg(after, key);
+                          const dimDelta = bVal !== null && aVal !== null ? +(aVal - bVal).toFixed(1) : null;
+                          const dimColor = dimDelta === null ? C.textDim : dimDelta > 0 ? C.accent : dimDelta < 0 ? C.danger : C.warn;
+                          const bRaw = periodRawAvg(before, key);
+                          const aRaw = periodRawAvg(after, key);
+                          const cfg = DIM_RAW[key];
+                          return (
+                            <div key={key} style={{ display: "grid", gridTemplateColumns: "120px 1fr 1fr 100px",
+                              gap: 10, padding: "12px 14px", alignItems: "center",
+                              borderBottom: idx < dims.length - 1 ? `1px solid ${C.border}` : "none",
+                              background: idx % 2 === 0 ? "transparent" : C.surfaceAlt,
+                              borderLeft: `3px solid ${dimColor}` }}>
+                              {/* Label */}
+                              <div style={{ fontSize: 12, fontWeight: 700, color: C.text, fontFamily: FONT_UI }}>
+                                {label}<span style={{ fontSize: 10, color: C.textDim, fontWeight: 400 }}> /{max}</span>
+                              </div>
+                              {/* Underlying stat — prominent */}
+                              <div style={{ textAlign: "center", fontFamily: FONT }}>
+                                {cfg ? (
+                                  <span style={{ fontSize: 15, fontWeight: 700, color: C.text }}>
+                                    {bRaw !== null ? cfg.fmt(bRaw) : "—"}
+                                    <span style={{ color: C.textDim, fontWeight: 400, margin: "0 7px" }}>→</span>
+                                    {aRaw !== null ? cfg.fmt(aRaw) : "—"}
+                                    <span style={{ fontSize: 10, color: C.textMuted, fontWeight: 400, marginLeft: 6, fontFamily: FONT_UI }}>{cfg.unit}</span>
+                                  </span>
+                                ) : <span style={{ color: C.textDim }}>—</span>}
+                              </div>
+                              {/* Score points */}
+                              <div style={{ textAlign: "center", fontFamily: FONT, fontSize: 12, color: C.textMuted }}>
+                                {bVal !== null ? bVal : "—"}
+                                <span style={{ color: C.textDim, margin: "0 6px" }}>→</span>
+                                {aVal !== null ? aVal : "—"}
+                                <span style={{ fontSize: 10, color: C.textDim, marginLeft: 5 }}>pts</span>
+                              </div>
+                              {/* Change pill */}
+                              <div style={{ textAlign: "right" }}>
+                                <span style={{ display: "inline-block", minWidth: 60, textAlign: "center",
+                                  fontSize: 13, fontWeight: 700, color: dimColor, fontFamily: FONT,
+                                  background: `${dimColor}14`, border: `1px solid ${dimColor}33`,
+                                  borderRadius: 12, padding: "3px 10px" }}>
+                                  {dimDelta === null ? "—" : dimDelta > 0 ? `▲ +${dimDelta}` : dimDelta < 0 ? `▼ ${Math.abs(dimDelta)}` : "0"}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   );
