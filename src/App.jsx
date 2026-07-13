@@ -2182,55 +2182,64 @@ function AssistantQualityTab() {
                               </tr>
                             </thead>
                             <tbody>
-                              {[
-                                { key: "volume",  label: "Volume",   max: 20, rawFn: s => s.result.wps,                   fmt: v => v.toFixed(2),       unit: "/stu" },
-                                { key: "queue",   label: "Queue",    max: 20, rawFn: s => (s.result.wpq||0)*100,           fmt: v => v.toFixed(1),       unit: "/100q" },
-                                { key: "cov1",    label: "Broad Cov",max: 10, rawFn: s => (s.result.coverage1plus||0)*100, fmt: v => Math.round(v)+"%",  unit: "" },
-                                { key: "cov2",    label: "Deep Cov", max: 10, rawFn: s => (s.result.coverage2plus||0)*100, fmt: v => Math.round(v)+"%",  unit: "" },
-                                { key: "pacing",  label: "Pacing",   max: 30, rawFn: s => s.result.medianGap,             fmt: v => Math.round(v)+"s",  unit: "" },
-                                { key: "longGap", label: "Long Gap", max: 10, rawFn: s => (s.result.longGapPct||0)*100,   fmt: v => Math.round(v)+"%",  unit: "" },
-                              ].map(({ key, label, max, rawFn, fmt, unit }) => {
-                                const bScore = periodDimAvg(before, key);
-                                const aScore = periodDimAvg(after, key);
-                                const dimDelta = bScore !== null && aScore !== null ? +(aScore - bScore).toFixed(1) : null;
-                                const dimColor = dimDelta === null ? C.textDim : dimDelta > 0 ? C.accent : dimDelta < 0 ? C.danger : C.warn;
-                                const rawB = before.length ? before.reduce((n,s) => n + (rawFn(s)||0), 0) / before.length : null;
-                                const rawA = after.length  ? after.reduce((n,s)  => n + (rawFn(s)||0), 0) / after.length  : null;
-                                const rawDelta = rawB !== null && rawA !== null ? rawA - rawB : null;
-                                // For pacing and longGap, lower is better so invert the color
-                                const invertedKeys = ["pacing", "longGap"];
-                                const rawColor = rawDelta === null ? C.textDim
-                                  : invertedKeys.includes(key)
-                                    ? (rawDelta < 0 ? C.accent : rawDelta > 0 ? C.danger : C.warn)
-                                    : (rawDelta > 0 ? C.accent : rawDelta < 0 ? C.danger : C.warn);
-                                const tdStyle = { padding: "5px 8px", borderBottom: `1px solid ${C.border}`, color: C.text, textAlign: "center", fontFamily: FONT, fontSize: 11 };
-                                return (
-                                  <tr key={key}>
-                                    <td style={{ ...tdStyle, textAlign: "left", fontFamily: FONT_UI, fontWeight: 500, color: C.textMuted, fontSize: 10 }}>{label}</td>
-                                    <td style={{ ...tdStyle, color: C.textMuted }}>
-                                      {bScore !== null ? bScore : "—"}
-                                      {rawB !== null && <div style={{ fontSize: 9, color: C.textDim }}>{fmt(rawB)}{unit ? " "+unit : ""}</div>}
-                                    </td>
-                                    <td style={{ ...tdStyle, color: C.textMuted }}>
-                                      {aScore !== null ? aScore : "—"}
-                                      {rawA !== null && <div style={{ fontSize: 9, color: C.textDim }}>{fmt(rawA)}{unit ? " "+unit : ""}</div>}
-                                    </td>
-                                    <td style={{ ...tdStyle, fontWeight: 700, color: dimColor }}>
-                                      {dimDelta !== null ? `${dimDelta > 0 ? "+" : ""}${dimDelta}` : "—"}
-                                    </td>
-                                    <td style={{ ...tdStyle, fontWeight: 700, color: rawColor }}>
-                                      {(() => {
-                                        if (rawDelta === null) return "\u2014";
-                                        const sign = rawDelta > 0 ? "+" : "";
-                                        const raw = fmt(rawDelta);
-                                        const num = raw.endsWith("%") ? raw.slice(0,-1) : raw.endsWith("s") ? raw.slice(0,-1) : raw;
-                                        const suffix = unit ? unit : key === "pacing" ? "s" : key === "longGap" ? "%" : "";
-                                        return sign + num + suffix;
-                                      })()}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
+                              {(() => {
+                                const fmtFixed2 = v => v.toFixed(2);
+                                const fmtFixed1 = v => v.toFixed(1);
+                                const fmtPct = v => String(Math.round(v)) + "pct";
+                                const fmtSec = v => String(Math.round(v)) + "sec";
+                                const growthDims = [
+                                  { key: "volume",  label: "Volume",   max: 20, rawFn: s => s.result.wps,                    fmt: fmtFixed2, unit: "/stu",  suffix: "" },
+                                  { key: "queue",   label: "Queue",    max: 20, rawFn: s => (s.result.wpq||0)*100,            fmt: fmtFixed1, unit: "/100q", suffix: "" },
+                                  { key: "cov1",    label: "Broad Cov",max: 10, rawFn: s => (s.result.coverage1plus||0)*100,  fmt: fmtPct,    unit: "",      suffix: "%" },
+                                  { key: "cov2",    label: "Deep Cov", max: 10, rawFn: s => (s.result.coverage2plus||0)*100,  fmt: fmtPct,    unit: "",      suffix: "%" },
+                                  { key: "pacing",  label: "Pacing",   max: 30, rawFn: s => s.result.medianGap,              fmt: fmtSec,    unit: "",      suffix: "s" },
+                                  { key: "longGap", label: "Long Gap", max: 10, rawFn: s => (s.result.longGapPct||0)*100,    fmt: fmtPct,    unit: "",      suffix: "%" },
+                                ];
+                                return growthDims.map(({ key, label, max, rawFn, fmt, unit, suffix }) => {
+                                  const bScore = periodDimAvg(before, key);
+                                  const aScore = periodDimAvg(after, key);
+                                  const dimDelta = bScore !== null && aScore !== null ? +(aScore - bScore).toFixed(1) : null;
+                                  const dimColor = dimDelta === null ? C.textDim : dimDelta > 0 ? C.accent : dimDelta < 0 ? C.danger : C.warn;
+                                  const rawB = before.length ? before.reduce((n,s) => n + (rawFn(s)||0), 0) / before.length : null;
+                                  const rawA = after.length  ? after.reduce((n,s) => n + (rawFn(s)||0), 0) / after.length  : null;
+                                  const rawDelta = rawB !== null && rawA !== null ? rawA - rawB : null;
+                                  const invertedKeys = ["pacing", "longGap"];
+                                  const rawColor = rawDelta === null ? C.textDim
+                                    : invertedKeys.includes(key)
+                                      ? (rawDelta < 0 ? C.accent : rawDelta > 0 ? C.danger : C.warn)
+                                      : (rawDelta > 0 ? C.accent : rawDelta < 0 ? C.danger : C.warn);
+                                  const tdStyle = { padding: "5px 8px", borderBottom: "1px solid " + C.border, color: C.text, textAlign: "center", fontFamily: FONT, fontSize: 11 };
+                                  // format raw value, replacing placeholder unit chars
+                                  const fmtRaw = (v) => {
+                                    const s = fmt(v);
+                                    return s.endsWith("pct") ? s.slice(0,-3) + suffix : s.endsWith("sec") ? s.slice(0,-3) + suffix : s + (unit || "");
+                                  };
+                                  const fmtDelta = (v) => {
+                                    const s = fmt(Math.abs(v));
+                                    const num = s.endsWith("pct") ? s.slice(0,-3) : s.endsWith("sec") ? s.slice(0,-3) : s;
+                                    return (v > 0 ? "+" : "-") + num + suffix;
+                                  };
+                                  return (
+                                    <tr key={key}>
+                                      <td style={{ ...tdStyle, textAlign: "left", fontFamily: FONT_UI, fontWeight: 500, color: C.textMuted, fontSize: 10 }}>{label}</td>
+                                      <td style={{ ...tdStyle, color: C.textMuted }}>
+                                        {bScore !== null ? bScore : "\u2014"}
+                                        {rawB !== null && <div style={{ fontSize: 9, color: C.textDim }}>{fmtRaw(rawB)}</div>}
+                                      </td>
+                                      <td style={{ ...tdStyle, color: C.textMuted }}>
+                                        {aScore !== null ? aScore : "\u2014"}
+                                        {rawA !== null && <div style={{ fontSize: 9, color: C.textDim }}>{fmtRaw(rawA)}</div>}
+                                      </td>
+                                      <td style={{ ...tdStyle, fontWeight: 700, color: dimColor }}>
+                                        {dimDelta !== null ? (dimDelta > 0 ? "+" : "") + dimDelta : "\u2014"}
+                                      </td>
+                                      <td style={{ ...tdStyle, fontWeight: 700, color: rawColor }}>
+                                        {rawDelta !== null ? fmtDelta(rawDelta) : "\u2014"}
+                                      </td>
+                                    </tr>
+                                  );
+                                });
+                              })()}
                             </tbody>
                           </table>
                         </div>
