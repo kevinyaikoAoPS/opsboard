@@ -1414,15 +1414,15 @@ function getFlags(pctPraise, praise_p75, praise_p90, pctIdle, nChains, longGapCo
 
   // Long gap flags — based on % of active session in gaps > 5 min
   if (longGapPct >= 0.40)
-    flags.push({ level: "critical", text: `${(longGapPct*100).toFixed(0)}% of session in long gaps (max ${Math.round(maxGap/60)}m ${Math.round(maxGap%60)}s)` });
+    flags.push({ level: "critical", text: (longGapPct*100).toFixed(0) + "% of session in long gaps (max " + Math.round(maxGap/60) + "m " + Math.round(maxGap - Math.floor(maxGap/60)*60) + "s)" });
   else if (longGapPct >= 0.20 || (longGapCount >= 3 && longGapPct > 0))
-    flags.push({ level: "warning", text: `${(longGapPct*100).toFixed(0)}% of session in long gaps (${longGapCount} gap${longGapCount !== 1 ? "s" : ""} over 5 min)` });
+    flags.push({ level: "warning", text: (longGapPct*100).toFixed(0) + "% of session in long gaps (" + longGapCount + " gap" + (longGapCount !== 1 ? "s" : "") + " over 5 min)" });
 
   // Praise blast flags
   if (pctPraise > praise_p90)
-    flags.push({ level: "warning", text: `High praise blast rate (${(pctPraise*100).toFixed(0)}%)` });
+    flags.push({ level: "warning", text: "High praise blast rate (" + (pctPraise*100).toFixed(0) + "%)" });
   else if (pctPraise > praise_p75)
-    flags.push({ level: "note", text: `Elevated praise blast rate (${(pctPraise*100).toFixed(0)}%)` });
+    flags.push({ level: "note", text: "Elevated praise blast rate (" + (pctPraise*100).toFixed(0) + "%)" });
 
   return flags;
 }
@@ -1681,7 +1681,7 @@ function SessionScoreCard({ result, sessionLabel }) {
               { label: "Deep Coverage (2+)", value: (coverage2plus * 100).toFixed(0) + "%" },
               { label: "Median Gap", value: medianGap + "s" },
               { label: "Avg Char Count", value: avgChar },
-              { label: "Max Gap", value: maxGap >= 60 ? `${Math.floor(maxGap/60)}m ${Math.round(maxGap%60)}s` : `${maxGap}s`, warn: maxGap > 300 },
+              { label: "Max Gap", value: maxGap >= 60 ? Math.floor(maxGap/60) + "m " + Math.round(maxGap - Math.floor(maxGap/60)*60) + "s" : `${maxGap}s`, warn: maxGap > 300 },
               { label: "Long Gaps (5+ min)", value: longGapCount, warn: longGapCount >= 1 },
               { label: "% Session in Long Gaps", value: (longGapPct * 100).toFixed(1) + "%", warn: longGapPct >= 0.20 },
               { label: "Unique Recipients", value: `${uniqueRecipients} / ${numStudents}` },
@@ -2342,7 +2342,7 @@ function AssistantQualityTab() {
                             {key === "volume" ? rawAvg.toFixed(2) :
                              key === "pacing" ? `${Math.round(rawAvg)}s` :
                              key === "queue"  ? rawAvg.toFixed(1) :
-                             `${Math.round(rawAvg)}%`}
+                             Math.round(rawAvg) + "%"}
                             <span style={{ color: C.textDim }}> {unit}</span>
                           </div>
                         )}
