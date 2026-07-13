@@ -2132,75 +2132,107 @@ function AssistantQualityTab() {
                   const scoreBefore = periodScore(before);
                   const scoreAfter  = periodScore(after);
                   const delta = scoreBefore !== null && scoreAfter !== null ? +(scoreAfter - scoreBefore).toFixed(1) : null;
-                  const dims = [
-                    { key: "volume",  label: "Volume",   max: 20 },
-                    { key: "queue",   label: "Queue",    max: 20 },
-                    { key: "cov1",    label: "Broad",    max: 10 },
-                    { key: "cov2",    label: "Deep",     max: 10 },
-                    { key: "pacing",  label: "Pacing",   max: 30 },
-                    { key: "longGap", label: "Long Gap", max: 10 },
-                  ];
                   const topColor = delta === null ? C.textMuted : delta > 0 ? C.accent : delta < 0 ? C.danger : C.warn;
                   return (
                     <div key={a.assistant} style={{ ...sx.card, marginBottom: 12, borderTop: `3px solid ${topColor}` }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-                        {/* Name + delta */}
-                        <div style={{ minWidth: 140 }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: C.text, fontFamily: FONT_UI }}>{a.assistant}</div>
-                          <div style={{ fontSize: 10, color: C.textMuted, fontFamily: FONT_UI, marginTop: 2 }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 20, flexWrap: "wrap" }}>
+                        {/* Name + scores */}
+                        <div style={{ minWidth: 180, flexShrink: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: C.text, fontFamily: FONT_UI, marginBottom: 4 }}>{a.assistant}</div>
+                          <div style={{ fontSize: 10, color: C.textMuted, fontFamily: FONT_UI, marginBottom: 10 }}>
                             {before.length} before · {after.length} after
                           </div>
-                        </div>
-                        {/* Score badges */}
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <div style={{ textAlign: "center" }}>
-                            <div style={{ ...sx.label, marginBottom: 2 }}>Before</div>
-                            <div style={{ fontSize: 20, fontWeight: 700, color: scoreBefore !== null ? (scoreBefore >= 80 ? C.accent : scoreBefore >= 60 ? C.warn : C.danger) : C.textDim, fontFamily: FONT }}>
-                              {scoreBefore !== null ? scoreBefore : "—"}
-                            </div>
-                            <div style={{ fontSize: 9, color: C.textDim, fontFamily: FONT_UI }}>{before.length} session{before.length !== 1 ? "s" : ""}</div>
-                          </div>
-                          <div style={{ fontSize: 18, color: C.textDim }}>→</div>
-                          <div style={{ textAlign: "center" }}>
-                            <div style={{ ...sx.label, marginBottom: 2 }}>After</div>
-                            <div style={{ fontSize: 20, fontWeight: 700, color: scoreAfter !== null ? (scoreAfter >= 80 ? C.accent : scoreAfter >= 60 ? C.warn : C.danger) : C.textDim, fontFamily: FONT }}>
-                              {scoreAfter !== null ? scoreAfter : "—"}
-                            </div>
-                            <div style={{ fontSize: 9, color: C.textDim, fontFamily: FONT_UI }}>{after.length} session{after.length !== 1 ? "s" : ""}</div>
-                          </div>
-                          {delta !== null && (
-                            <div style={{ textAlign: "center", padding: "4px 10px", borderRadius: 20,
-                              background: `${topColor}18`, border: `1px solid ${topColor}44` }}>
-                              <div style={{ fontSize: 16, fontWeight: 700, color: topColor, fontFamily: FONT }}>
-                                {delta > 0 ? "+" : ""}{delta}
-                              </div>
-                              <div style={{ fontSize: 9, color: topColor, fontFamily: FONT_UI, fontWeight: 700 }}>
-                                {delta > 0 ? "▲ Improved" : delta < 0 ? "▼ Declined" : "No change"}
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <div style={{ textAlign: "center" }}>
+                              <div style={{ ...sx.label, marginBottom: 2 }}>Before</div>
+                              <div style={{ fontSize: 22, fontWeight: 700, color: scoreBefore !== null ? (scoreBefore >= 80 ? C.accent : scoreBefore >= 60 ? C.warn : C.danger) : C.textDim, fontFamily: FONT }}>
+                                {scoreBefore !== null ? scoreBefore : "—"}
                               </div>
                             </div>
-                          )}
-                        </div>
-                        {/* Dimension breakdown */}
-                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginLeft: "auto" }}>
-                          {dims.map(({ key, label, max }) => {
-                            const bVal = periodDimAvg(before, key);
-                            const aVal = periodDimAvg(after, key);
-                            const dimDelta = bVal !== null && aVal !== null ? +(aVal - bVal).toFixed(1) : null;
-                            const dimColor = dimDelta === null ? C.textDim : dimDelta > 0 ? C.accent : dimDelta < 0 ? C.danger : C.warn;
-                            return (
-                              <div key={key} style={{ textAlign: "center", background: C.surfaceAlt,
-                                borderRadius: 6, padding: "4px 8px", border: `1px solid ${C.border}`,
-                                borderTop: `2px solid ${dimColor}`, minWidth: 52 }}>
-                                <div style={{ ...sx.label, marginBottom: 1, fontSize: 9 }}>{label}</div>
-                                <div style={{ fontSize: 11, fontWeight: 700, color: dimColor, fontFamily: FONT }}>
-                                  {dimDelta !== null ? `${dimDelta > 0 ? "+" : ""}${dimDelta}` : "—"}
+                            <div style={{ fontSize: 18, color: C.textDim }}>→</div>
+                            <div style={{ textAlign: "center" }}>
+                              <div style={{ ...sx.label, marginBottom: 2 }}>After</div>
+                              <div style={{ fontSize: 22, fontWeight: 700, color: scoreAfter !== null ? (scoreAfter >= 80 ? C.accent : scoreAfter >= 60 ? C.warn : C.danger) : C.textDim, fontFamily: FONT }}>
+                                {scoreAfter !== null ? scoreAfter : "—"}
+                              </div>
+                            </div>
+                            {delta !== null && (
+                              <div style={{ textAlign: "center", padding: "4px 10px", borderRadius: 20,
+                                background: `${topColor}18`, border: `1px solid ${topColor}44` }}>
+                                <div style={{ fontSize: 16, fontWeight: 700, color: topColor, fontFamily: FONT }}>
+                                  {delta > 0 ? "+" : ""}{delta}
                                 </div>
-                                <div style={{ fontSize: 9, color: C.textDim, fontFamily: FONT_UI }}>
-                                  {bVal !== null ? bVal : "—"} → {aVal !== null ? aVal : "—"}
+                                <div style={{ fontSize: 9, color: topColor, fontFamily: FONT_UI, fontWeight: 700 }}>
+                                  {delta > 0 ? "▲ Improved" : delta < 0 ? "▼ Declined" : "No change"}
                                 </div>
                               </div>
-                            );
-                          })}
+                            )}
+                          </div>
+                        </div>
+                        {/* Dimension breakdown — vertical table */}
+                        <div style={{ flex: "1 1 320px", minWidth: 280 }}>
+                          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                            <thead>
+                              <tr>
+                                <th style={{ ...sx.th, textAlign: "left", padding: "4px 8px", fontSize: 10 }}>Dimension</th>
+                                <th style={{ ...sx.th, textAlign: "center", padding: "4px 8px", fontSize: 10 }}>Before</th>
+                                <th style={{ ...sx.th, textAlign: "center", padding: "4px 8px", fontSize: 10 }}>After</th>
+                                <th style={{ ...sx.th, textAlign: "center", padding: "4px 8px", fontSize: 10 }}>Score D</th>
+                                <th style={{ ...sx.th, textAlign: "center", padding: "4px 8px", fontSize: 10 }}>Raw D</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {[
+                                { key: "volume",  label: "Volume",   max: 20, rawFn: s => s.result.wps,                   fmt: v => v.toFixed(2),       unit: "/stu" },
+                                { key: "queue",   label: "Queue",    max: 20, rawFn: s => (s.result.wpq||0)*100,           fmt: v => v.toFixed(1),       unit: "/100q" },
+                                { key: "cov1",    label: "Broad Cov",max: 10, rawFn: s => (s.result.coverage1plus||0)*100, fmt: v => Math.round(v)+"%",  unit: "" },
+                                { key: "cov2",    label: "Deep Cov", max: 10, rawFn: s => (s.result.coverage2plus||0)*100, fmt: v => Math.round(v)+"%",  unit: "" },
+                                { key: "pacing",  label: "Pacing",   max: 30, rawFn: s => s.result.medianGap,             fmt: v => Math.round(v)+"s",  unit: "" },
+                                { key: "longGap", label: "Long Gap", max: 10, rawFn: s => (s.result.longGapPct||0)*100,   fmt: v => Math.round(v)+"%",  unit: "" },
+                              ].map(({ key, label, max, rawFn, fmt, unit }) => {
+                                const bScore = periodDimAvg(before, key);
+                                const aScore = periodDimAvg(after, key);
+                                const dimDelta = bScore !== null && aScore !== null ? +(aScore - bScore).toFixed(1) : null;
+                                const dimColor = dimDelta === null ? C.textDim : dimDelta > 0 ? C.accent : dimDelta < 0 ? C.danger : C.warn;
+                                const rawB = before.length ? before.reduce((n,s) => n + (rawFn(s)||0), 0) / before.length : null;
+                                const rawA = after.length  ? after.reduce((n,s)  => n + (rawFn(s)||0), 0) / after.length  : null;
+                                const rawDelta = rawB !== null && rawA !== null ? rawA - rawB : null;
+                                // For pacing and longGap, lower is better so invert the color
+                                const invertedKeys = ["pacing", "longGap"];
+                                const rawColor = rawDelta === null ? C.textDim
+                                  : invertedKeys.includes(key)
+                                    ? (rawDelta < 0 ? C.accent : rawDelta > 0 ? C.danger : C.warn)
+                                    : (rawDelta > 0 ? C.accent : rawDelta < 0 ? C.danger : C.warn);
+                                const tdStyle = { padding: "5px 8px", borderBottom: `1px solid ${C.border}`, color: C.text, textAlign: "center", fontFamily: FONT, fontSize: 11 };
+                                return (
+                                  <tr key={key}>
+                                    <td style={{ ...tdStyle, textAlign: "left", fontFamily: FONT_UI, fontWeight: 500, color: C.textMuted, fontSize: 10 }}>{label}</td>
+                                    <td style={{ ...tdStyle, color: C.textMuted }}>
+                                      {bScore !== null ? bScore : "—"}
+                                      {rawB !== null && <div style={{ fontSize: 9, color: C.textDim }}>{fmt(rawB)}{unit ? " "+unit : ""}</div>}
+                                    </td>
+                                    <td style={{ ...tdStyle, color: C.textMuted }}>
+                                      {aScore !== null ? aScore : "—"}
+                                      {rawA !== null && <div style={{ fontSize: 9, color: C.textDim }}>{fmt(rawA)}{unit ? " "+unit : ""}</div>}
+                                    </td>
+                                    <td style={{ ...tdStyle, fontWeight: 700, color: dimColor }}>
+                                      {dimDelta !== null ? `${dimDelta > 0 ? "+" : ""}${dimDelta}` : "—"}
+                                    </td>
+                                    <td style={{ ...tdStyle, fontWeight: 700, color: rawColor }}>
+                                      {(() => {
+                                        if (rawDelta === null) return "—";
+                                        const sign = rawDelta > 0 ? "+" : "";
+                                        const num = fmt(rawDelta).replace("%","").replace("s","");
+                                        const suffix = unit || (key === "pacing" ? "s" : key === "longGap" ? "%" : "");
+                                        return `${sign}${num}${suffix}`;
+                                      })()}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
                         </div>
                       </div>
                     </div>
