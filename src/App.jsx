@@ -1701,87 +1701,6 @@ function SessionScoreCard({ result, sessionLabel }) {
   );
 }
 
-function GrowthDimTable({ before, after, periodDimAvg }) {
-  const fmtFixed2 = function(v) { return v.toFixed(2); };
-  const fmtFixed1 = function(v) { return v.toFixed(1); };
-  const fmtPct    = function(v) { return String(Math.round(v)) + "pct"; };
-  const fmtSec    = function(v) { return String(Math.round(v)) + "sec"; };
-  const growthDims = [
-    { key: "volume",  label: "Volume",    max: 20, rawFn: function(s) { return s.result.wps; },                    fmt: fmtFixed2, suffix: "/stu"  },
-    { key: "queue",   label: "Queue",     max: 20, rawFn: function(s) { return (s.result.wpq||0)*100; },            fmt: fmtFixed1, suffix: "/100q" },
-    { key: "cov1",    label: "Broad Cov", max: 10, rawFn: function(s) { return (s.result.coverage1plus||0)*100; },  fmt: fmtPct,    suffix: "pct"   },
-    { key: "cov2",    label: "Deep Cov",  max: 10, rawFn: function(s) { return (s.result.coverage2plus||0)*100; },  fmt: fmtPct,    suffix: "pct"   },
-    { key: "pacing",  label: "Pacing",    max: 30, rawFn: function(s) { return s.result.medianGap; },              fmt: fmtSec,    suffix: "sec"   },
-    { key: "longGap", label: "Long Gap",  max: 10, rawFn: function(s) { return (s.result.longGapPct||0)*100; },    fmt: fmtPct,    suffix: "pct"   },
-  ];
-  const invertedKeys = ["pacing", "longGap"];
-
-  const fmtRaw = function(fmt, v, suffix) {
-    const s = fmt(v);
-    if (s.endsWith("pct")) return s.slice(0,-3) + "%";
-    if (s.endsWith("sec")) return s.slice(0,-3) + "s";
-    return s + (suffix !== "pct" && suffix !== "sec" ? suffix : "");
-  };
-  const fmtDelta = function(fmt, v, suffix) {
-    const s = fmt(Math.abs(v));
-    const num = s.endsWith("pct") ? s.slice(0,-3) : s.endsWith("sec") ? s.slice(0,-3) : s;
-    const sfx = suffix === "pct" ? "%" : suffix === "sec" ? "s" : suffix;
-    return (v > 0 ? "+" : "-") + num + sfx;
-  };
-
-  return (
-    <div style={{ flex: "1 1 320px", minWidth: 280 }}>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
-        <thead>
-          <tr>
-            <th style={{ textAlign: "left", padding: "4px 8px", fontSize: 10, borderBottom: "1px solid " + C.border, color: C.textMuted }}>Dimension</th>
-            <th style={{ textAlign: "center", padding: "4px 8px", fontSize: 10, borderBottom: "1px solid " + C.border, color: C.textMuted }}>Before</th>
-            <th style={{ textAlign: "center", padding: "4px 8px", fontSize: 10, borderBottom: "1px solid " + C.border, color: C.textMuted }}>After</th>
-            <th style={{ textAlign: "center", padding: "4px 8px", fontSize: 10, borderBottom: "1px solid " + C.border, color: C.textMuted }}>Score D</th>
-            <th style={{ textAlign: "center", padding: "4px 8px", fontSize: 10, borderBottom: "1px solid " + C.border, color: C.textMuted }}>Raw D</th>
-          </tr>
-        </thead>
-        <tbody>
-          {growthDims.map(function(dim) {
-            const key = dim.key; const label = dim.label; const rawFn = dim.rawFn; const fmt = dim.fmt; const suffix = dim.suffix;
-            const bScore = periodDimAvg(before, key);
-            const aScore = periodDimAvg(after, key);
-            const dimDelta = bScore !== null && aScore !== null ? +(aScore - bScore).toFixed(1) : null;
-            const dimColor = dimDelta === null ? C.textDim : dimDelta > 0 ? C.accent : dimDelta < 0 ? C.danger : C.warn;
-            const rawB = before.length ? before.reduce(function(n,s) { return n + (rawFn(s)||0); }, 0) / before.length : null;
-            const rawA = after.length  ? after.reduce(function(n,s)  { return n + (rawFn(s)||0); }, 0) / after.length  : null;
-            const rawDelta = rawB !== null && rawA !== null ? rawA - rawB : null;
-            const rawColor = rawDelta === null ? C.textDim
-              : invertedKeys.indexOf(key) >= 0
-                ? (rawDelta < 0 ? C.accent : rawDelta > 0 ? C.danger : C.warn)
-                : (rawDelta > 0 ? C.accent : rawDelta < 0 ? C.danger : C.warn);
-            const td = { padding: "5px 8px", borderBottom: "1px solid " + C.border, textAlign: "center", fontFamily: FONT, fontSize: 11 };
-            return (
-              <tr key={key}>
-                <td style={{ ...td, textAlign: "left", fontFamily: FONT_UI, fontWeight: 500, color: C.textMuted, fontSize: 10 }}>{label}</td>
-                <td style={{ ...td, color: C.textMuted }}>
-                  {bScore !== null ? bScore : "\u2014"}
-                  {rawB !== null && <div style={{ fontSize: 9, color: C.textDim }}>{fmtRaw(fmt, rawB, suffix)}</div>}
-                </td>
-                <td style={{ ...td, color: C.textMuted }}>
-                  {aScore !== null ? aScore : "\u2014"}
-                  {rawA !== null && <div style={{ fontSize: 9, color: C.textDim }}>{fmtRaw(fmt, rawA, suffix)}</div>}
-                </td>
-                <td style={{ ...td, fontWeight: 700, color: dimColor }}>
-                  {dimDelta !== null ? (dimDelta > 0 ? "+" : "") + dimDelta : "\u2014"}
-                </td>
-                <td style={{ ...td, fontWeight: 700, color: rawColor }}>
-                  {rawDelta !== null ? fmtDelta(fmt, rawDelta, suffix) : "\u2014"}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 function AssistantQualityTab() {
   const { shelf, zoomData, setZoomData, clearZoomData } = useShelf();
   const [whisperSources, setWhisperSources] = useState([]);
@@ -2250,8 +2169,35 @@ function AssistantQualityTab() {
                             )}
                           </div>
                         </div>
-                        {/* Dimension breakdown — vertical table */}
-                        <GrowthDimTable before={before} after={after} periodDimAvg={periodDimAvg} />
+                        {/* Dimension breakdown */}
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginLeft: "auto" }}>
+                          {[
+                            { key: "volume",  label: "Volume",   max: 20 },
+                            { key: "queue",   label: "Queue",    max: 20 },
+                            { key: "cov1",    label: "Broad",    max: 10 },
+                            { key: "cov2",    label: "Deep",     max: 10 },
+                            { key: "pacing",  label: "Pacing",   max: 30 },
+                            { key: "longGap", label: "Long Gap", max: 10 },
+                          ].map(({ key, label, max }) => {
+                            const bVal = periodDimAvg(before, key);
+                            const aVal = periodDimAvg(after, key);
+                            const dimDelta = bVal !== null && aVal !== null ? +(aVal - bVal).toFixed(1) : null;
+                            const dimColor = dimDelta === null ? C.textDim : dimDelta > 0 ? C.accent : dimDelta < 0 ? C.danger : C.warn;
+                            return (
+                              <div key={key} style={{ textAlign: "center", background: C.surfaceAlt,
+                                borderRadius: 6, padding: "4px 8px", border: "1px solid " + C.border,
+                                borderTop: "2px solid " + dimColor, minWidth: 52 }}>
+                                <div style={{ ...sx.label, marginBottom: 1, fontSize: 9 }}>{label}</div>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: dimColor, fontFamily: FONT }}>
+                                  {dimDelta !== null ? (dimDelta > 0 ? "+" : "") + dimDelta : "\u2014"}
+                                </div>
+                                <div style={{ fontSize: 9, color: C.textDim, fontFamily: FONT_UI }}>
+                                  {bVal !== null ? bVal : "\u2014"} {"\u2192"} {aVal !== null ? aVal : "\u2014"}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
                         </div>
                       </div>
                     </div>
