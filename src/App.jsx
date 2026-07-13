@@ -1701,6 +1701,87 @@ function SessionScoreCard({ result, sessionLabel }) {
   );
 }
 
+function GrowthDimTable({ before, after, periodDimAvg }) {
+  const fmtFixed2 = function(v) { return v.toFixed(2); };
+  const fmtFixed1 = function(v) { return v.toFixed(1); };
+  const fmtPct    = function(v) { return String(Math.round(v)) + "pct"; };
+  const fmtSec    = function(v) { return String(Math.round(v)) + "sec"; };
+  const growthDims = [
+    { key: "volume",  label: "Volume",    max: 20, rawFn: function(s) { return s.result.wps; },                    fmt: fmtFixed2, suffix: "/stu"  },
+    { key: "queue",   label: "Queue",     max: 20, rawFn: function(s) { return (s.result.wpq||0)*100; },            fmt: fmtFixed1, suffix: "/100q" },
+    { key: "cov1",    label: "Broad Cov", max: 10, rawFn: function(s) { return (s.result.coverage1plus||0)*100; },  fmt: fmtPct,    suffix: "pct"   },
+    { key: "cov2",    label: "Deep Cov",  max: 10, rawFn: function(s) { return (s.result.coverage2plus||0)*100; },  fmt: fmtPct,    suffix: "pct"   },
+    { key: "pacing",  label: "Pacing",    max: 30, rawFn: function(s) { return s.result.medianGap; },              fmt: fmtSec,    suffix: "sec"   },
+    { key: "longGap", label: "Long Gap",  max: 10, rawFn: function(s) { return (s.result.longGapPct||0)*100; },    fmt: fmtPct,    suffix: "pct"   },
+  ];
+  const invertedKeys = ["pacing", "longGap"];
+
+  const fmtRaw = function(fmt, v, suffix) {
+    const s = fmt(v);
+    if (s.endsWith("pct")) return s.slice(0,-3) + "%";
+    if (s.endsWith("sec")) return s.slice(0,-3) + "s";
+    return s + (suffix !== "pct" && suffix !== "sec" ? suffix : "");
+  };
+  const fmtDelta = function(fmt, v, suffix) {
+    const s = fmt(Math.abs(v));
+    const num = s.endsWith("pct") ? s.slice(0,-3) : s.endsWith("sec") ? s.slice(0,-3) : s;
+    const sfx = suffix === "pct" ? "%" : suffix === "sec" ? "s" : suffix;
+    return (v > 0 ? "+" : "-") + num + sfx;
+  };
+
+  return (
+    <div style={{ flex: "1 1 320px", minWidth: 280 }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+        <thead>
+          <tr>
+            <th style={{ textAlign: "left", padding: "4px 8px", fontSize: 10, borderBottom: "1px solid " + C.border, color: C.textMuted }}>Dimension</th>
+            <th style={{ textAlign: "center", padding: "4px 8px", fontSize: 10, borderBottom: "1px solid " + C.border, color: C.textMuted }}>Before</th>
+            <th style={{ textAlign: "center", padding: "4px 8px", fontSize: 10, borderBottom: "1px solid " + C.border, color: C.textMuted }}>After</th>
+            <th style={{ textAlign: "center", padding: "4px 8px", fontSize: 10, borderBottom: "1px solid " + C.border, color: C.textMuted }}>Score D</th>
+            <th style={{ textAlign: "center", padding: "4px 8px", fontSize: 10, borderBottom: "1px solid " + C.border, color: C.textMuted }}>Raw D</th>
+          </tr>
+        </thead>
+        <tbody>
+          {growthDims.map(function(dim) {
+            const key = dim.key; const label = dim.label; const rawFn = dim.rawFn; const fmt = dim.fmt; const suffix = dim.suffix;
+            const bScore = periodDimAvg(before, key);
+            const aScore = periodDimAvg(after, key);
+            const dimDelta = bScore !== null && aScore !== null ? +(aScore - bScore).toFixed(1) : null;
+            const dimColor = dimDelta === null ? C.textDim : dimDelta > 0 ? C.accent : dimDelta < 0 ? C.danger : C.warn;
+            const rawB = before.length ? before.reduce(function(n,s) { return n + (rawFn(s)||0); }, 0) / before.length : null;
+            const rawA = after.length  ? after.reduce(function(n,s)  { return n + (rawFn(s)||0); }, 0) / after.length  : null;
+            const rawDelta = rawB !== null && rawA !== null ? rawA - rawB : null;
+            const rawColor = rawDelta === null ? C.textDim
+              : invertedKeys.indexOf(key) >= 0
+                ? (rawDelta < 0 ? C.accent : rawDelta > 0 ? C.danger : C.warn)
+                : (rawDelta > 0 ? C.accent : rawDelta < 0 ? C.danger : C.warn);
+            const td = { padding: "5px 8px", borderBottom: "1px solid " + C.border, textAlign: "center", fontFamily: FONT, fontSize: 11 };
+            return (
+              <tr key={key}>
+                <td style={{ ...td, textAlign: "left", fontFamily: FONT_UI, fontWeight: 500, color: C.textMuted, fontSize: 10 }}>{label}</td>
+                <td style={{ ...td, color: C.textMuted }}>
+                  {bScore !== null ? bScore : "\u2014"}
+                  {rawB !== null && <div style={{ fontSize: 9, color: C.textDim }}>{fmtRaw(fmt, rawB, suffix)}</div>}
+                </td>
+                <td style={{ ...td, color: C.textMuted }}>
+                  {aScore !== null ? aScore : "\u2014"}
+                  {rawA !== null && <div style={{ fontSize: 9, color: C.textDim }}>{fmtRaw(fmt, rawA, suffix)}</div>}
+                </td>
+                <td style={{ ...td, fontWeight: 700, color: dimColor }}>
+                  {dimDelta !== null ? (dimDelta > 0 ? "+" : "") + dimDelta : "\u2014"}
+                </td>
+                <td style={{ ...td, fontWeight: 700, color: rawColor }}>
+                  {rawDelta !== null ? fmtDelta(fmt, rawDelta, suffix) : "\u2014"}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function AssistantQualityTab() {
   const { shelf, zoomData, setZoomData, clearZoomData } = useShelf();
   const [whisperSources, setWhisperSources] = useState([]);
@@ -2170,79 +2251,7 @@ function AssistantQualityTab() {
                           </div>
                         </div>
                         {/* Dimension breakdown — vertical table */}
-                        <div style={{ flex: "1 1 320px", minWidth: 280 }}>
-                          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
-                            <thead>
-                              <tr>
-                                <th style={{ ...sx.th, textAlign: "left", padding: "4px 8px", fontSize: 10 }}>Dimension</th>
-                                <th style={{ ...sx.th, textAlign: "center", padding: "4px 8px", fontSize: 10 }}>Before</th>
-                                <th style={{ ...sx.th, textAlign: "center", padding: "4px 8px", fontSize: 10 }}>After</th>
-                                <th style={{ ...sx.th, textAlign: "center", padding: "4px 8px", fontSize: 10 }}>Score D</th>
-                                <th style={{ ...sx.th, textAlign: "center", padding: "4px 8px", fontSize: 10 }}>Raw D</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {(() => {
-                                const fmtFixed2 = v => v.toFixed(2);
-                                const fmtFixed1 = v => v.toFixed(1);
-                                const fmtPct = v => String(Math.round(v)) + "pct";
-                                const fmtSec = v => String(Math.round(v)) + "sec";
-                                const growthDims = [
-                                  { key: "volume",  label: "Volume",   max: 20, rawFn: s => s.result.wps,                    fmt: fmtFixed2, unit: "/stu",  suffix: "" },
-                                  { key: "queue",   label: "Queue",    max: 20, rawFn: s => (s.result.wpq||0)*100,            fmt: fmtFixed1, unit: "/100q", suffix: "" },
-                                  { key: "cov1",    label: "Broad Cov",max: 10, rawFn: s => (s.result.coverage1plus||0)*100,  fmt: fmtPct,    unit: "",      suffix: "%" },
-                                  { key: "cov2",    label: "Deep Cov", max: 10, rawFn: s => (s.result.coverage2plus||0)*100,  fmt: fmtPct,    unit: "",      suffix: "%" },
-                                  { key: "pacing",  label: "Pacing",   max: 30, rawFn: s => s.result.medianGap,              fmt: fmtSec,    unit: "",      suffix: "s" },
-                                  { key: "longGap", label: "Long Gap", max: 10, rawFn: s => (s.result.longGapPct||0)*100,    fmt: fmtPct,    unit: "",      suffix: "%" },
-                                ];
-                                return growthDims.map(({ key, label, max, rawFn, fmt, unit, suffix }) => {
-                                  const bScore = periodDimAvg(before, key);
-                                  const aScore = periodDimAvg(after, key);
-                                  const dimDelta = bScore !== null && aScore !== null ? +(aScore - bScore).toFixed(1) : null;
-                                  const dimColor = dimDelta === null ? C.textDim : dimDelta > 0 ? C.accent : dimDelta < 0 ? C.danger : C.warn;
-                                  const rawB = before.length ? before.reduce((n,s) => n + (rawFn(s)||0), 0) / before.length : null;
-                                  const rawA = after.length  ? after.reduce((n,s) => n + (rawFn(s)||0), 0) / after.length  : null;
-                                  const rawDelta = rawB !== null && rawA !== null ? rawA - rawB : null;
-                                  const invertedKeys = ["pacing", "longGap"];
-                                  const rawColor = rawDelta === null ? C.textDim
-                                    : invertedKeys.includes(key)
-                                      ? (rawDelta < 0 ? C.accent : rawDelta > 0 ? C.danger : C.warn)
-                                      : (rawDelta > 0 ? C.accent : rawDelta < 0 ? C.danger : C.warn);
-                                  const tdStyle = { padding: "5px 8px", borderBottom: "1px solid " + C.border, color: C.text, textAlign: "center", fontFamily: FONT, fontSize: 11 };
-                                  // format raw value, replacing placeholder unit chars
-                                  const fmtRaw = (v) => {
-                                    const s = fmt(v);
-                                    return s.endsWith("pct") ? s.slice(0,-3) + suffix : s.endsWith("sec") ? s.slice(0,-3) + suffix : s + (unit || "");
-                                  };
-                                  const fmtDelta = (v) => {
-                                    const s = fmt(Math.abs(v));
-                                    const num = s.endsWith("pct") ? s.slice(0,-3) : s.endsWith("sec") ? s.slice(0,-3) : s;
-                                    return (v > 0 ? "+" : "-") + num + suffix;
-                                  };
-                                  return (
-                                    <tr key={key}>
-                                      <td style={{ ...tdStyle, textAlign: "left", fontFamily: FONT_UI, fontWeight: 500, color: C.textMuted, fontSize: 10 }}>{label}</td>
-                                      <td style={{ ...tdStyle, color: C.textMuted }}>
-                                        {bScore !== null ? bScore : "\u2014"}
-                                        {rawB !== null && <div style={{ fontSize: 9, color: C.textDim }}>{fmtRaw(rawB)}</div>}
-                                      </td>
-                                      <td style={{ ...tdStyle, color: C.textMuted }}>
-                                        {aScore !== null ? aScore : "\u2014"}
-                                        {rawA !== null && <div style={{ fontSize: 9, color: C.textDim }}>{fmtRaw(rawA)}</div>}
-                                      </td>
-                                      <td style={{ ...tdStyle, fontWeight: 700, color: dimColor }}>
-                                        {dimDelta !== null ? (dimDelta > 0 ? "+" : "") + dimDelta : "\u2014"}
-                                      </td>
-                                      <td style={{ ...tdStyle, fontWeight: 700, color: rawColor }}>
-                                        {rawDelta !== null ? fmtDelta(rawDelta) : "\u2014"}
-                                      </td>
-                                    </tr>
-                                  );
-                                });
-                              })()}
-                            </tbody>
-                          </table>
-                        </div>
+                        <GrowthDimTable before={before} after={after} periodDimAvg={periodDimAvg} />
                         </div>
                       </div>
                     </div>
