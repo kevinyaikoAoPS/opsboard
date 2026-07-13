@@ -2220,11 +2220,12 @@ function AssistantQualityTab() {
                                     </td>
                                     <td style={{ ...tdStyle, fontWeight: 700, color: rawColor }}>
                                       {(() => {
-                                        if (rawDelta === null) return "—";
+                                        if (rawDelta === null) return "\u2014";
                                         const sign = rawDelta > 0 ? "+" : "";
-                                        const num = fmt(rawDelta).replace("%","").replace("s","");
-                                        const suffix = unit || (key === "pacing" ? "s" : key === "longGap" ? "%" : "");
-                                        return `${sign}${num}${suffix}`;
+                                        const raw = fmt(rawDelta);
+                                        const num = raw.endsWith("%") ? raw.slice(0,-1) : raw.endsWith("s") ? raw.slice(0,-1) : raw;
+                                        const suffix = unit ? unit : key === "pacing" ? "s" : key === "longGap" ? "%" : "";
+                                        return sign + num + suffix;
                                       })()}
                                     </td>
                                   </tr>
