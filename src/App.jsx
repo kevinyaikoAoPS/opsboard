@@ -1740,6 +1740,16 @@ function AssistantQualityTab() {
     setResults(null); setError("");
   };
 
+  const handleSelectAllShelf = () => {
+    const allSelected = shelf.length > 0 && shelf.every(item => whisperSources.some(s => s.name === item.label));
+    if (allSelected) {
+      setWhisperSources([]);
+    } else {
+      setWhisperSources(shelf.map(item => ({ text: toCSV(item.rows), name: item.label })));
+    }
+    setResults(null); setError("");
+  };
+
   const handleModeSwitch = (newMode) => {
     setWhisperMode(newMode);
     setWhisperSources([]);
@@ -1899,6 +1909,7 @@ function AssistantQualityTab() {
   }, [activeData, filterTier, sortBy]);
 
   const ready = zoomData.text && whisperSources.length > 0;
+  const allShelfSelected = shelf.length > 0 && shelf.every(item => whisperSources.some(s => s.name === item.label));
 
   return (
     <div>
@@ -1984,6 +1995,17 @@ function AssistantQualityTab() {
                 <input type="file" accept=".csv" multiple onChange={handleWhisperUpload} style={{ display: "none" }} />
               </label>
             ) : (
+              <>
+              {shelf.length > 0 && (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                  <span style={{ fontSize: 10, color: C.textDim, fontFamily: FONT_UI }}>
+                    {whisperSources.length} of {shelf.length} selected
+                  </span>
+                  <button onClick={handleSelectAllShelf} style={{ ...sx.btn(allShelfSelected), fontSize: 11 }}>
+                    {allShelfSelected ? "☒ Unselect All" : "☑ Select All"}
+                  </button>
+                </div>
+              )}
               <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 160, overflowY: "auto",
                 border: `1px solid ${C.border}`, borderRadius: 8, padding: 6, background: C.surfaceAlt }}>
                 {shelf.length === 0
@@ -2006,6 +2028,7 @@ function AssistantQualityTab() {
                   })
                 }
               </div>
+              </>
             )}
             {whisperSources.length > 0 && whisperMode === "shelf" && (
               <div style={{ fontSize: 10, color: C.accent, fontFamily: FONT_UI, marginTop: 4 }}>
