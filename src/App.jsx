@@ -1333,7 +1333,7 @@ function MessageCounterTab({ onGoToParser }) {
 
 // ─── ASSISTANT SCORER TAB ─────────────────────────────────────────────────────
 
-const COURSE_TIERS = {"prealgebra1":"intro_math","prealgebra2":"intro_math","algebra-a":"intro_math","algebra-b":"intro_math","intro-geometry":"intro_math","intro-counting":"intro_math","intro-numbertheory":"intro_math","mathcounts-basics":"intro_math","mathcounts-advanced":"intro_math","intermediate-algebra":"interm_math","intermediate-counting":"interm_math","intermediate-numbertheory":"interm_math","precalc":"interm_math","maa-amc10":"interm_math","maa-amc10-final-five":"interm_math","maa-amc12":"interm_math","calculus":"adv_math","olympiad-geometry":"adv_math","grouptheory":"adv_math","maa-aimea":"adv_math","maa-aimeb":"adv_math","woot-math-1":"woot","woot-math-2":"woot","woot-chem":"woot","woot-physics":"woot","woot-code":"woot","intro-physics":"physics","physics1":"physics","fma":"physics","paradoxes-camp":"physics","relativity-camp":"physics","python1":"cs","python2":"cs","cs-bronze":"cs"};
+const COURSE_TIERS = {"prealgebra1":"intro_math","prealgebra2":"intro_math","algebra-a":"intro_math","algebra-b":"intro_math","intro-geometry":"intro_math","intro-counting":"intro_math","intro-numbertheory":"intro_math","mathcounts-basics":"intro_math","mathcounts-advanced":"intro_math","intermediate-algebra":"interm_math","intermediate-counting":"interm_math","intermediate-numbertheory":"interm_math","precalc":"interm_math","maa-amc10":"interm_math","maa-amc10-final-five":"interm_math","maa-amc12":"interm_math","calculus":"adv_math","olympiad-geometry":"adv_math","grouptheory":"adv_math","maa-aimea":"adv_math","maa-aimeb":"adv_math","woot-math-1":"woot","woot-math-2":"woot","woot-chem":"woot","woot-physics":"woot","woot-code":"woot","intro-physics":"physics","physics1":"physics","fma":"physics","paradoxes-camp":"physics","relativity-camp":"physics","python1":"cs","python2":"cs","cs-bronze":"cs","cs-silver":"cs"};
 
 const TIER_LABELS = { intro_math: "Intro Math", interm_math: "Interm. Math", adv_math: "Adv. Math", woot: "WOOT", physics: "Physics", cs: "CS" };
 
@@ -1799,11 +1799,18 @@ function AssistantQualityTab() {
 
       // Score each matching session
       const scoredSessions = [];
+      const unrecognizedCourses = {};  // course_id -> count of dropped sessions
       for (const s of sessions) {
         const date = (s.lesson_date || "").slice(0, 10);
         const key = `${s.assistant}|${date}`;
         const whispers = whispersByKey[key] || [];
         if (!whispers.length) continue;
+        // Course must map to a scoring tier; otherwise the session can't be scored.
+        if (!COURSE_TIERS[s.course_id]) {
+          const cid = s.course_id || "(blank)";
+          unrecognizedCourses[cid] = (unrecognizedCourses[cid] || 0) + 1;
+          continue;
+        }
         const result = scoreSession(
           whispers,
           parseInt(s.num_students) || 0,
@@ -1815,9 +1822,21 @@ function AssistantQualityTab() {
         scoredSessions.push({ assistant: s.assistant, date, courseId: s.course_id, classId: s.class_id, lesson: s.lesson, result });
       }
 
+      const unrecognizedList = Object.entries(unrecognizedCourses)
+        .map(([c, n]) => `${c} (${n} session${n !== 1 ? "s" : ""})`);
+
       if (!scoredSessions.length) {
-        setError("No matching sessions found. Make sure assistant names and dates align between the ZoomData and whisper log files.");
+        if (unrecognizedList.length) {
+          setError(`No sessions could be scored: unrecognized course${unrecognizedList.length !== 1 ? "s" : ""} ${unrecognizedList.join(", ")}. Add ${unrecognizedList.length !== 1 ? "these courses" : "this course"} to the COURSE_TIERS table in the code (mapping to a tier: intro_math, interm_math, adv_math, woot, physics, or cs).`);
+        } else {
+          setError("No matching sessions found. Make sure assistant names and dates align between the ZoomData and whisper log files.");
+        }
         return;
+      }
+
+      // Warn (but don't fail) about recognized-but-dropped courses when some sessions did score
+      if (unrecognizedList.length) {
+        warn.push(`Unrecognized course${unrecognizedList.length !== 1 ? "s" : ""} skipped: ${unrecognizedList.join(", ")}. Add ${unrecognizedList.length !== 1 ? "them" : "it"} to COURSE_TIERS to include ${unrecognizedList.length !== 1 ? "those sessions" : "that session"}.`);
       }
 
       // Warn about senders in whisper logs not found in ZoomData
