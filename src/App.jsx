@@ -1339,6 +1339,37 @@ const TIER_LABELS = { intro_math: "Intro Math", interm_math: "Interm. Math", adv
 
 const TIER_STATS = {"wps_p25":{"adv_math":1.0681,"cs":0.8287,"interm_math":0.8558,"intro_math":0.9952,"physics":0.8703,"woot":0.6543},"wps_p50":{"adv_math":1.5697,"cs":1.2001,"interm_math":1.3413,"intro_math":1.5516,"physics":1.3976,"woot":1.0166},"wps_p75":{"adv_math":2.3517,"cs":1.8174,"interm_math":2.116,"intro_math":2.3918,"physics":2.134,"woot":1.5997},"wpq_p25":{"adv_math":0.0473,"cs":0.0367,"interm_math":0.0372,"intro_math":0.033,"physics":0.0361,"woot":0.0331},"wpq_p50":{"adv_math":0.0747,"cs":0.0588,"interm_math":0.0624,"intro_math":0.0522,"physics":0.0615,"woot":0.0531},"wpq_p75":{"adv_math":0.1177,"cs":0.0952,"interm_math":0.0939,"intro_math":0.0832,"physics":0.1097,"woot":0.0856},"cov1_p25":{"adv_math":0.4627,"cs":0.3927,"interm_math":0.41,"intro_math":0.4947,"physics":0.4287,"woot":0.3333},"cov1_p50":{"adv_math":0.5972,"cs":0.514,"interm_math":0.5598,"intro_math":0.6341,"physics":0.593,"woot":0.4468},"cov1_p75":{"adv_math":0.7482,"cs":0.6877,"interm_math":0.7486,"intro_math":0.768,"physics":0.7073,"woot":0.5816},"cov2_p25":{"adv_math":0.2514,"cs":0.1825,"interm_math":0.1959,"intro_math":0.2422,"physics":0.2026,"woot":0.1505},"cov2_p50":{"adv_math":0.3544,"cs":0.2857,"interm_math":0.3119,"intro_math":0.372,"physics":0.3466,"woot":0.2453},"cov2_p75":{"adv_math":0.4955,"cs":0.417,"interm_math":0.4593,"intro_math":0.5136,"physics":0.4767,"woot":0.3586},"gap_p25":{"adv_math":38.0,"cs":51.7586,"interm_math":36.3443,"intro_math":35.2597,"physics":43.9085,"woot":50.3755},"gap_p50":{"adv_math":59.3885,"cs":77.8276,"interm_math":56.5165,"intro_math":52.6061,"physics":66.3856,"woot":82.3231},"gap_p75":{"adv_math":95.7193,"cs":119.431,"interm_math":85.5495,"intro_math":78.3853,"physics":106.6634,"woot":144.8821},"praise_p75":{"adv_math":0.059,"cs":0.0204,"interm_math":0.0823,"intro_math":0.0856,"physics":0.0806,"woot":0.0754},"praise_p90":{"adv_math":0.1287,"cs":0.135,"interm_math":0.1909,"intro_math":0.1954,"physics":0.1674,"woot":0.1947},"lg_p25":{"adv_math":0.1855,"cs":0.2158,"interm_math":0.0783,"intro_math":0.0065,"physics":0.1233,"woot":0.2167},"lg_p50":{"adv_math":0.344,"cs":0.4016,"interm_math":0.2565,"intro_math":0.1544,"physics":0.3342,"woot":0.4368},"lg_p75":{"adv_math":0.564,"cs":0.5892,"interm_math":0.4658,"intro_math":0.3596,"physics":0.5838,"woot":0.639}};
 
+// ─── CLASS-SIZE BANDS ──────────────────────────────────────────────────────
+// Assistant output does not scale with class size (total whispers rise only ~26%
+// while class size doubles), so per-student and per-queued metrics fall in large
+// classes for reasons outside the assistant's control. Volume, queue engagement,
+// and both coverage metrics are therefore benchmarked within tier AND size band.
+// Pacing and long-gap % show no size effect and remain tier-only.
+// Bands are tertiles of class size within each tier: [smallCut, largeCut].
+const SIZE_BAND_CUTS = {"adv_math":[32,46],"cs":[31,41],"interm_math":[43,56],"intro_math":[42,52],"physics":[36,46],"woot":[52,72]};
+// Per-metric percentiles indexed [tier][band] where band 0=small, 1=mid, 2=large.
+// intro_math / interm_math derived from their own sessions; other tiers use the
+// tier benchmark scaled by pooled cross-tier size ratios (insufficient data for
+// own bands - revisit once those tiers exceed ~300 sessions per band).
+const TIER_STATS_BY_SIZE = {"wps_p25":{"adv_math":[1.4431,1.0987,0.8346],"cs":[1.1196,0.8524,0.6475],"interm_math":[1.113,0.9134,0.7408],"intro_math":[1.3061,0.9805,0.8328],"physics":[1.1758,0.8952,0.68],"woot":[0.884,0.673,0.5113]},"wps_p50":{"adv_math":[2.14,1.5697,1.2334],"cs":[1.6362,1.2001,0.943],"interm_math":[1.6753,1.4126,1.1091],"intro_math":[2.0352,1.4972,1.2369],"physics":[1.9054,1.3976,1.0982],"woot":[1.386,1.0166,0.7988]},"wps_p75":{"adv_math":[3.0192,2.2456,1.7599],"cs":[2.3332,1.7354,1.36],"interm_math":[2.4421,2.1417,1.6702],"intro_math":[2.8724,2.2264,1.7872],"physics":[2.7397,2.0377,1.597],"woot":[2.0537,1.5275,1.1971]},"wpq_p25":{"adv_math":[0.0651,0.0505,0.0352],"cs":[0.0505,0.0391,0.0273],"interm_math":[0.0454,0.0398,0.0314],"intro_math":[0.0437,0.0349,0.0275],"physics":[0.0497,0.0385,0.0269],"woot":[0.0456,0.0353,0.0246]},"wpq_p50":{"adv_math":[0.1009,0.0774,0.0554],"cs":[0.0794,0.061,0.0436],"interm_math":[0.0713,0.0651,0.0497],"intro_math":[0.0689,0.0557,0.0416],"physics":[0.083,0.0638,0.0456],"woot":[0.0717,0.055,0.0394]},"wpq_p75":{"adv_math":[0.1551,0.1172,0.0835],"cs":[0.1254,0.0948,0.0676],"interm_math":[0.1119,0.0986,0.0778],"intro_math":[0.1045,0.0841,0.0635],"physics":[0.1445,0.1092,0.0778],"woot":[0.1128,0.0852,0.0607]},"cov1_p25":{"adv_math":[0.5549,0.4796,0.3926],"cs":[0.471,0.407,0.3332],"interm_math":[0.4823,0.4199,0.3759],"intro_math":[0.5491,0.487,0.4429],"physics":[0.5141,0.4443,0.3638],"woot":[0.3997,0.3454,0.2828]},"cov1_p50":{"adv_math":[0.6943,0.5967,0.5164],"cs":[0.5976,0.5136,0.4444],"interm_math":[0.6356,0.5719,0.5089],"intro_math":[0.6976,0.6131,0.5701],"physics":[0.6894,0.5925,0.5128],"woot":[0.5194,0.4464,0.3863]},"cov1_p75":{"adv_math":[0.8349,0.7341,0.6585],"cs":[0.7674,0.6747,0.6052],"interm_math":[0.7947,0.7503,0.6429],"intro_math":[0.8133,0.7436,0.7126],"physics":[0.7893,0.694,0.6225],"woot":[0.649,0.5706,0.5118]},"cov2_p25":{"adv_math":[0.3472,0.2544,0.1951],"cs":[0.252,0.1847,0.1417],"interm_math":[0.2533,0.2075,0.1666],"intro_math":[0.319,0.2415,0.1992],"physics":[0.2798,0.205,0.1573],"woot":[0.2078,0.1523,0.1168]},"cov2_p50":{"adv_math":[0.4472,0.3544,0.2825],"cs":[0.3605,0.2857,0.2277],"interm_math":[0.3793,0.34,0.2635],"intro_math":[0.4497,0.3597,0.3144],"physics":[0.4373,0.3466,0.2763],"woot":[0.3095,0.2453,0.1955]},"cov2_p75":{"adv_math":[0.5863,0.4841,0.4036],"cs":[0.4934,0.4074,0.3397],"interm_math":[0.5266,0.4733,0.3822],"intro_math":[0.5828,0.4871,0.4296],"physics":[0.5641,0.4658,0.3883],"woot":[0.4243,0.3504,0.2921]}};
+
+function getSizeBand(tier, numStudents) {
+  const c = SIZE_BAND_CUTS[tier];
+  if (!c || !numStudents || numStudents <= 0) return 1;   // default to mid band
+  return numStudents < c[0] ? 0 : (numStudents <= c[1] ? 1 : 2);
+}
+
+// Returns [p25, p50, p75] for a metric, size-banded where available.
+function getBench(metric, tier, band) {
+  const sized = TIER_STATS_BY_SIZE[metric + "_p25"];
+  if (sized && sized[tier]) {
+    return [TIER_STATS_BY_SIZE[metric + "_p25"][tier][band],
+            TIER_STATS_BY_SIZE[metric + "_p50"][tier][band],
+            TIER_STATS_BY_SIZE[metric + "_p75"][tier][band]];
+  }
+  return [TIER_STATS[metric + "_p25"][tier], TIER_STATS[metric + "_p50"][tier], TIER_STATS[metric + "_p75"][tier]];
+}
+
 function scoreMetric(val, p25, p50, p75, invert = false, maxPts = 20) {
   if (val == null || isNaN(val)) return maxPts * 0.5;
   const full = maxPts, hi = maxPts * 0.75, mid = maxPts * 0.4;
@@ -1533,10 +1564,17 @@ function scoreSession(whispers, numStudents, numQueued, courseId, isWeek1 = fals
   // WOOT now has its own benchmarks derived from WOOT sessions (no longer borrows adv_math)
   const scoringTier = tier;
   const t = TIER_STATS;
-  const sVol   = scoreMetric(wps, t.wps_p25[scoringTier], t.wps_p50[scoringTier], t.wps_p75[scoringTier], false, 20);
-  const sQueue = scoreMetric(wpq, t.wpq_p25[scoringTier], t.wpq_p50[scoringTier], t.wpq_p75[scoringTier], false, 20);
-  const sCov1  = scoreMetric(coverage1plus, t.cov1_p25[scoringTier], t.cov1_p50[scoringTier], t.cov1_p75[scoringTier], false, 10);
-  const sCov2  = scoreMetric(coverage2plus, t.cov2_p25[scoringTier], t.cov2_p50[scoringTier], t.cov2_p75[scoringTier], false, 10);
+  // Class-size band: volume, queue and coverage are benchmarked within tier AND size band,
+  // because assistant output does not scale with class size. Pacing/long-gap are tier-only.
+  const sizeBand = getSizeBand(scoringTier, numStudents);
+  const bVol = getBench("wps", scoringTier, sizeBand);
+  const bQue = getBench("wpq", scoringTier, sizeBand);
+  const bC1  = getBench("cov1", scoringTier, sizeBand);
+  const bC2  = getBench("cov2", scoringTier, sizeBand);
+  const sVol   = scoreMetric(wps, bVol[0], bVol[1], bVol[2], false, 20);
+  const sQueue = scoreMetric(wpq, bQue[0], bQue[1], bQue[2], false, 20);
+  const sCov1  = scoreMetric(coverage1plus, bC1[0], bC1[1], bC1[2], false, 10);
+  const sCov2  = scoreMetric(coverage2plus, bC2[0], bC2[1], bC2[2], false, 10);
   const sPace  = scoreMetric(medianGap, t.gap_p25[scoringTier], t.gap_p50[scoringTier], t.gap_p75[scoringTier], true, 30);
   const sLongGap = scoreMetric(longGapPct, t.lg_p25[scoringTier], t.lg_p50[scoringTier], t.lg_p75[scoringTier], true, 10);
   const total  = sVol + sQueue + sCov1 + sCov2 + sPace + sLongGap;
@@ -1548,6 +1586,7 @@ function scoreSession(whispers, numStudents, numQueued, courseId, isWeek1 = fals
 
   return {
     tier, tierLabel: TIER_LABELS[tier],
+    sizeBand, sizeBandLabel: ["Small","Mid","Large"][sizeBand],
     nWhispers, uniqueRecipients, numStudents, numQueued,
     wps: +wps.toFixed(3), wpq: +wpq.toFixed(4), avgChar,
     coverage1plus: +coverage1plus.toFixed(3), coverage2plus: +coverage2plus.toFixed(3),
@@ -1675,6 +1714,7 @@ function SessionScoreCard({ result, sessionLabel }) {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8 }}>
             {[
               { label: "Tier", value: tierLabel },
+              { label: "Class Size Band", value: `${result.sizeBandLabel} (${numStudents} stu)` },
               { label: "Whispers / Student", value: wps },
               { label: "Whispers / 100 Queued", value: (result.wpq * 100).toFixed(2) },
               { label: "Broad Coverage (1+)", value: (coverage1plus * 100).toFixed(0) + "%" },
