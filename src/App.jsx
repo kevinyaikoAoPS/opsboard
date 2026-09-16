@@ -1333,42 +1333,11 @@ function MessageCounterTab({ onGoToParser }) {
 
 // ─── ASSISTANT SCORER TAB ─────────────────────────────────────────────────────
 
-const COURSE_TIERS = {"prealgebra1":"intro_math","prealgebra2":"intro_math","algebra-a":"intro_math","algebra-b":"intro_math","intro-geometry":"intro_math","intro-counting":"intro_math","intro-numbertheory":"intro_math","mathcounts-basics":"intro_math","mathcounts-advanced":"intro_math","intermediate-algebra":"interm_math","intermediate-counting":"interm_math","intermediate-numbertheory":"interm_math","precalc":"interm_math","maa-amc10":"interm_math","maa-amc10-final-five":"interm_math","maa-amc12":"interm_math","calculus":"adv_math","olympiad-geometry":"adv_math","grouptheory":"adv_math","maa-aimea":"adv_math","maa-aimeb":"adv_math","woot-math-1":"woot","woot-math-2":"woot","woot-chem":"woot","woot-physics":"woot","woot-code":"woot","intro-physics":"physics","physics1":"physics","fma":"physics","paradoxes-camp":"physics","relativity-camp":"physics","python1":"cs","python2":"cs","cs-bronze":"cs","cs-silver":"cs"};
+const COURSE_TIERS = {"prealgebra1":"intro_math","prealgebra2":"intro_math","algebra-a":"intro_math","algebra-b":"intro_math","intro-geometry":"intro_math","intro-counting":"intro_math","intro-numbertheory":"intro_math","mathcounts-basics":"intro_math","mathcounts-advanced":"intro_math","intermediate-algebra":"interm_math","intermediate-counting":"interm_math","intermediate-numbertheory":"interm_math","precalc":"interm_math","maa-amc10":"interm_math","maa-amc10-final-five":"interm_math","maa-amc12":"interm_math","calculus":"adv_math","olympiad-geometry":"adv_math","grouptheory":"adv_math","maa-aimea":"adv_math","maa-aimeb":"adv_math","woot-math-1":"woot","woot-math-2":"woot","woot-chem":"woot","woot-physics":"woot","woot-code":"woot","intro-physics":"physics","physics1":"physics","fma":"physics","paradoxes-camp":"physics","relativity-camp":"physics","python1":"cs","python2":"cs","cs-bronze":"cs"};
 
 const TIER_LABELS = { intro_math: "Intro Math", interm_math: "Interm. Math", adv_math: "Adv. Math", woot: "WOOT", physics: "Physics", cs: "CS" };
 
-const TIER_STATS = {"wps_p25":{"adv_math":1.0681,"cs":0.8287,"interm_math":0.8558,"intro_math":0.9952,"physics":0.8703,"woot":0.6543},"wps_p50":{"adv_math":1.5697,"cs":1.2001,"interm_math":1.3413,"intro_math":1.5516,"physics":1.3976,"woot":1.0166},"wps_p75":{"adv_math":2.3517,"cs":1.8174,"interm_math":2.116,"intro_math":2.3918,"physics":2.134,"woot":1.5997},"wpq_p25":{"adv_math":0.0473,"cs":0.0367,"interm_math":0.0372,"intro_math":0.033,"physics":0.0361,"woot":0.0331},"wpq_p50":{"adv_math":0.0747,"cs":0.0588,"interm_math":0.0624,"intro_math":0.0522,"physics":0.0615,"woot":0.0531},"wpq_p75":{"adv_math":0.1177,"cs":0.0952,"interm_math":0.0939,"intro_math":0.0832,"physics":0.1097,"woot":0.0856},"cov1_p25":{"adv_math":0.4627,"cs":0.3927,"interm_math":0.41,"intro_math":0.4947,"physics":0.4287,"woot":0.3333},"cov1_p50":{"adv_math":0.5972,"cs":0.514,"interm_math":0.5598,"intro_math":0.6341,"physics":0.593,"woot":0.4468},"cov1_p75":{"adv_math":0.7482,"cs":0.6877,"interm_math":0.7486,"intro_math":0.768,"physics":0.7073,"woot":0.5816},"cov2_p25":{"adv_math":0.2514,"cs":0.1825,"interm_math":0.1959,"intro_math":0.2422,"physics":0.2026,"woot":0.1505},"cov2_p50":{"adv_math":0.3544,"cs":0.2857,"interm_math":0.3119,"intro_math":0.372,"physics":0.3466,"woot":0.2453},"cov2_p75":{"adv_math":0.4955,"cs":0.417,"interm_math":0.4593,"intro_math":0.5136,"physics":0.4767,"woot":0.3586},"gap_p25":{"adv_math":38.0,"cs":51.7586,"interm_math":36.3443,"intro_math":35.2597,"physics":43.9085,"woot":50.3755},"gap_p50":{"adv_math":59.3885,"cs":77.8276,"interm_math":56.5165,"intro_math":52.6061,"physics":66.3856,"woot":82.3231},"gap_p75":{"adv_math":95.7193,"cs":119.431,"interm_math":85.5495,"intro_math":78.3853,"physics":106.6634,"woot":144.8821},"praise_p75":{"adv_math":0.059,"cs":0.0204,"interm_math":0.0823,"intro_math":0.0856,"physics":0.0806,"woot":0.0754},"praise_p90":{"adv_math":0.1287,"cs":0.135,"interm_math":0.1909,"intro_math":0.1954,"physics":0.1674,"woot":0.1947},"lg_p25":{"adv_math":0.1855,"cs":0.2158,"interm_math":0.0783,"intro_math":0.0065,"physics":0.1233,"woot":0.2167},"lg_p50":{"adv_math":0.344,"cs":0.4016,"interm_math":0.2565,"intro_math":0.1544,"physics":0.3342,"woot":0.4368},"lg_p75":{"adv_math":0.564,"cs":0.5892,"interm_math":0.4658,"intro_math":0.3596,"physics":0.5838,"woot":0.639}};
-
-// ─── CLASS-SIZE BANDS ──────────────────────────────────────────────────────
-// Assistant output does not scale with class size (total whispers rise only ~26%
-// while class size doubles), so per-student and per-queued metrics fall in large
-// classes for reasons outside the assistant's control. Volume, queue engagement,
-// and both coverage metrics are therefore benchmarked within tier AND size band.
-// Pacing and long-gap % show no size effect and remain tier-only.
-// Bands are tertiles of class size within each tier: [smallCut, largeCut].
-const SIZE_BAND_CUTS = {"adv_math":[32,46],"cs":[31,41],"interm_math":[43,56],"intro_math":[42,52],"physics":[36,46],"woot":[52,72]};
-// Per-metric percentiles indexed [tier][band] where band 0=small, 1=mid, 2=large.
-// intro_math / interm_math derived from their own sessions; other tiers use the
-// tier benchmark scaled by pooled cross-tier size ratios (insufficient data for
-// own bands - revisit once those tiers exceed ~300 sessions per band).
-const TIER_STATS_BY_SIZE = {"wps_p25":{"adv_math":[1.4431,1.0987,0.8346],"cs":[1.1196,0.8524,0.6475],"interm_math":[1.113,0.9134,0.7408],"intro_math":[1.3061,0.9805,0.8328],"physics":[1.1758,0.8952,0.68],"woot":[0.884,0.673,0.5113]},"wps_p50":{"adv_math":[2.14,1.5697,1.2334],"cs":[1.6362,1.2001,0.943],"interm_math":[1.6753,1.4126,1.1091],"intro_math":[2.0352,1.4972,1.2369],"physics":[1.9054,1.3976,1.0982],"woot":[1.386,1.0166,0.7988]},"wps_p75":{"adv_math":[3.0192,2.2456,1.7599],"cs":[2.3332,1.7354,1.36],"interm_math":[2.4421,2.1417,1.6702],"intro_math":[2.8724,2.2264,1.7872],"physics":[2.7397,2.0377,1.597],"woot":[2.0537,1.5275,1.1971]},"wpq_p25":{"adv_math":[0.0651,0.0505,0.0352],"cs":[0.0505,0.0391,0.0273],"interm_math":[0.0454,0.0398,0.0314],"intro_math":[0.0437,0.0349,0.0275],"physics":[0.0497,0.0385,0.0269],"woot":[0.0456,0.0353,0.0246]},"wpq_p50":{"adv_math":[0.1009,0.0774,0.0554],"cs":[0.0794,0.061,0.0436],"interm_math":[0.0713,0.0651,0.0497],"intro_math":[0.0689,0.0557,0.0416],"physics":[0.083,0.0638,0.0456],"woot":[0.0717,0.055,0.0394]},"wpq_p75":{"adv_math":[0.1551,0.1172,0.0835],"cs":[0.1254,0.0948,0.0676],"interm_math":[0.1119,0.0986,0.0778],"intro_math":[0.1045,0.0841,0.0635],"physics":[0.1445,0.1092,0.0778],"woot":[0.1128,0.0852,0.0607]},"cov1_p25":{"adv_math":[0.5549,0.4796,0.3926],"cs":[0.471,0.407,0.3332],"interm_math":[0.4823,0.4199,0.3759],"intro_math":[0.5491,0.487,0.4429],"physics":[0.5141,0.4443,0.3638],"woot":[0.3997,0.3454,0.2828]},"cov1_p50":{"adv_math":[0.6943,0.5967,0.5164],"cs":[0.5976,0.5136,0.4444],"interm_math":[0.6356,0.5719,0.5089],"intro_math":[0.6976,0.6131,0.5701],"physics":[0.6894,0.5925,0.5128],"woot":[0.5194,0.4464,0.3863]},"cov1_p75":{"adv_math":[0.8349,0.7341,0.6585],"cs":[0.7674,0.6747,0.6052],"interm_math":[0.7947,0.7503,0.6429],"intro_math":[0.8133,0.7436,0.7126],"physics":[0.7893,0.694,0.6225],"woot":[0.649,0.5706,0.5118]},"cov2_p25":{"adv_math":[0.3472,0.2544,0.1951],"cs":[0.252,0.1847,0.1417],"interm_math":[0.2533,0.2075,0.1666],"intro_math":[0.319,0.2415,0.1992],"physics":[0.2798,0.205,0.1573],"woot":[0.2078,0.1523,0.1168]},"cov2_p50":{"adv_math":[0.4472,0.3544,0.2825],"cs":[0.3605,0.2857,0.2277],"interm_math":[0.3793,0.34,0.2635],"intro_math":[0.4497,0.3597,0.3144],"physics":[0.4373,0.3466,0.2763],"woot":[0.3095,0.2453,0.1955]},"cov2_p75":{"adv_math":[0.5863,0.4841,0.4036],"cs":[0.4934,0.4074,0.3397],"interm_math":[0.5266,0.4733,0.3822],"intro_math":[0.5828,0.4871,0.4296],"physics":[0.5641,0.4658,0.3883],"woot":[0.4243,0.3504,0.2921]}};
-
-function getSizeBand(tier, numStudents) {
-  const c = SIZE_BAND_CUTS[tier];
-  if (!c || !numStudents || numStudents <= 0) return 1;   // default to mid band
-  return numStudents < c[0] ? 0 : (numStudents <= c[1] ? 1 : 2);
-}
-
-// Returns [p25, p50, p75] for a metric, size-banded where available.
-function getBench(metric, tier, band) {
-  const sized = TIER_STATS_BY_SIZE[metric + "_p25"];
-  if (sized && sized[tier]) {
-    return [TIER_STATS_BY_SIZE[metric + "_p25"][tier][band],
-            TIER_STATS_BY_SIZE[metric + "_p50"][tier][band],
-            TIER_STATS_BY_SIZE[metric + "_p75"][tier][band]];
-  }
-  return [TIER_STATS[metric + "_p25"][tier], TIER_STATS[metric + "_p50"][tier], TIER_STATS[metric + "_p75"][tier]];
-}
+const TIER_STATS = {"wps_p25":{"adv_math":1.2857,"cs":0.7426,"interm_math":1.0128,"intro_math":1.1562,"physics":1.4014,"woot":1.2857},"wps_p50":{"adv_math":1.6765,"cs":1.0,"interm_math":1.4262,"intro_math":1.8205,"physics":1.9602,"woot":1.6765},"wps_p75":{"adv_math":2.1463,"cs":1.3984,"interm_math":2.1,"intro_math":2.5938,"physics":2.4452,"woot":2.1463},"wpq_p25":{"adv_math":0.0596,"cs":0.033,"interm_math":0.0476,"intro_math":0.0391,"physics":0.0578,"woot":0.0596},"wpq_p50":{"adv_math":0.0848,"cs":0.0505,"interm_math":0.0717,"intro_math":0.0608,"physics":0.0858,"woot":0.0848},"wpq_p75":{"adv_math":0.1239,"cs":0.0744,"interm_math":0.1112,"intro_math":0.0876,"physics":0.125,"woot":0.1239},"cov1_p25":{"adv_math":0.5,"cs":0.3582,"interm_math":0.451,"intro_math":0.5244,"physics":0.5619,"woot":0.5},"cov1_p50":{"adv_math":0.5849,"cs":0.4545,"interm_math":0.575,"intro_math":0.6744,"physics":0.6472,"woot":0.5849},"cov1_p75":{"adv_math":0.7273,"cs":0.5901,"interm_math":0.7069,"intro_math":0.7838,"physics":0.7517,"woot":0.7273},"cov2_p25":{"adv_math":0.3,"cs":0.1698,"interm_math":0.2337,"intro_math":0.2727,"physics":0.3333,"woot":0.3},"cov2_p50":{"adv_math":0.3793,"cs":0.2321,"interm_math":0.3458,"intro_math":0.4118,"physics":0.4249,"woot":0.3793},"cov2_p75":{"adv_math":0.4762,"cs":0.3282,"interm_math":0.4622,"intro_math":0.5556,"physics":0.5374,"woot":0.4762},"gap_p25":{"adv_math":43.0,"cs":55.0,"interm_math":34.0,"intro_math":31.0,"physics":43.375,"woot":43.0},"gap_p50":{"adv_math":64.0,"cs":82.25,"interm_math":47.0,"intro_math":44.0,"physics":57.75,"woot":64.0},"gap_p75":{"adv_math":94.0,"cs":107.625,"interm_math":69.5,"intro_math":65.0,"physics":78.625,"woot":94.0},"praise_p75":{"adv_math":0.0513,"cs":0.0,"interm_math":0.0526,"intro_math":0.0732,"physics":0.0936,"woot":0.0513},"praise_p90":{"adv_math":0.0863,"cs":0.0683,"interm_math":0.1206,"intro_math":0.162,"physics":0.2212,"woot":0.0863},"lg_p25":{"adv_math":0.1934,"cs":0.2796,"interm_math":0.0744,"intro_math":0.0,"physics":0.0615,"woot":0.1934},"lg_p50":{"adv_math":0.3198,"cs":0.4401,"interm_math":0.2049,"intro_math":0.1294,"physics":0.1702,"woot":0.3198},"lg_p75":{"adv_math":0.4692,"cs":0.6073,"interm_math":0.3765,"intro_math":0.3259,"physics":0.3771,"woot":0.4692}};
 
 function scoreMetric(val, p25, p50, p75, invert = false, maxPts = 20) {
   if (val == null || isNaN(val)) return maxPts * 0.5;
@@ -1445,21 +1414,21 @@ function getFlags(pctPraise, praise_p75, praise_p90, pctIdle, nChains, longGapCo
 
   // Long gap flags — based on % of active session in gaps > 5 min
   if (longGapPct >= 0.40)
-    flags.push({ level: "critical", text: `${(longGapPct*100).toFixed(0)}% of session in long gaps (max ${Math.round(maxGap/60)}m ${Math.round(maxGap%60)}s)` });
+    flags.push({ level: "critical", text: (longGapPct*100).toFixed(0) + "% of session in long gaps (max " + Math.round(maxGap/60) + "m " + Math.round(maxGap - Math.floor(maxGap/60)*60) + "s)" });
   else if (longGapPct >= 0.20 || (longGapCount >= 3 && longGapPct > 0))
-    flags.push({ level: "warning", text: `${(longGapPct*100).toFixed(0)}% of session in long gaps (${longGapCount} gap${longGapCount !== 1 ? "s" : ""} over 5 min)` });
+    flags.push({ level: "warning", text: (longGapPct*100).toFixed(0) + "% of session in long gaps (" + longGapCount + " gap" + (longGapCount !== 1 ? "s" : "") + " over 5 min)" });
 
   // Praise blast flags
   if (pctPraise > praise_p90)
-    flags.push({ level: "warning", text: `High praise blast rate (${(pctPraise*100).toFixed(0)}%)` });
+    flags.push({ level: "warning", text: "High praise blast rate (" + (pctPraise*100).toFixed(0) + "%)" });
   else if (pctPraise > praise_p75)
-    flags.push({ level: "note", text: `Elevated praise blast rate (${(pctPraise*100).toFixed(0)}%)` });
+    flags.push({ level: "note", text: "Elevated praise blast rate (" + (pctPraise*100).toFixed(0) + "%)" });
 
   return flags;
 }
 
 function detectIdleChains(whispers) {
-  // whispers: [{timestamp (ms), char_count}] sorted by time, same sender/session
+  // whispers: [{timestamp (ms), char_count, recipient}] sorted by time
   let nChains = 0, idleCount = 0;
   const gaps = [];
   for (let i = 1; i < whispers.length; i++) gaps.push(whispers[i].timestamp - whispers[i-1].timestamp);
@@ -1467,26 +1436,59 @@ function detectIdleChains(whispers) {
   const sessionMedian = validGaps.length >= 3
     ? [...validGaps].sort((a,b)=>a-b)[Math.floor(validGaps.length/2)] : null;
 
+  // Track which recipients have been whispered before each position
+  const seenRecipients = new Set();
+
   let i = 0;
   while (i < whispers.length - 4) {
+    // Mark recipients seen before this position
+    // (rebuild from scratch for accuracy)
+    const seenBefore = new Set();
+    for (let k = 0; k < i; k++) seenBefore.add(whispers[k].recipient);
+
     let j = i + 1;
+    // Widen gap window to 1-10s (was 1-6s) to catch slower roster scans
     while (j < whispers.length) {
       const dt = (whispers[j].timestamp - whispers[j-1].timestamp) / 1000;
       const dc = Math.abs(whispers[j].char_count - whispers[i].char_count);
-      if (dc <= 2 && dt >= 1 && dt <= 6) j++;
+      if (dc <= 2 && dt >= 1 && dt <= 10) j++;
       else break;
     }
-    if (j - i >= 5) {
-      // Check if anomalously fast
+    const chainLen = j - i;
+
+    if (chainLen >= 5) {
       const chainGaps = [];
       for (let k = i+1; k < j; k++) chainGaps.push(whispers[k].timestamp - whispers[k-1].timestamp);
       const avgChainGap = chainGaps.reduce((s,g)=>s+g,0)/chainGaps.length;
-      if (sessionMedian && avgChainGap < sessionMedian * 0.5) {
+
+      // Detection method 1: anomalously fast vs session median
+      const isFast = sessionMedian && avgChainGap < sessionMedian * 0.5;
+
+      // Detection method 2: roster scan
+      // Flags if most recipients in the chain are first-time contacts
+      // AND recipients appear to be in roughly alphabetical order
+      const chainRecips = whispers.slice(i, j).map(w => w.recipient).filter(Boolean);
+      const newRecips = chainRecips.filter(r => !seenBefore.has(r));
+      const pctNew = chainRecips.length > 0 ? newRecips.length / chainRecips.length : 0;
+
+      // Check rough alphabetical order: count how many consecutive pairs are in order
+      let orderedPairs = 0;
+      for (let k = 1; k < chainRecips.length; k++) {
+        if (chainRecips[k].toLowerCase() >= chainRecips[k-1].toLowerCase()) orderedPairs++;
+      }
+      const pctOrdered = chainRecips.length > 1 ? orderedPairs / (chainRecips.length - 1) : 0;
+
+      // Roster scan: 60%+ new recipients AND 70%+ alphabetically ordered
+      const isRosterScan = pctNew >= 0.6 && pctOrdered >= 0.7 && chainLen >= 8;
+
+      if (isFast || isRosterScan) {
         nChains++;
-        idleCount += (j - i);
+        idleCount += chainLen;
       }
       i = j;
     } else i++;
+
+    seenRecipients.add(whispers[i > 0 ? i-1 : 0].recipient);
   }
   return { nChains, idleCount };
 }
@@ -1552,7 +1554,7 @@ function scoreSession(whispers, numStudents, numQueued, courseId, isWeek1 = fals
   const pctPraise = nWhispers > 0 ? nPraiseMulti / nWhispers : 0;
 
   // Idle chain detection
-  const wsForChain = clipped.map(r => ({ timestamp: new Date(r.timestamp).getTime(), char_count: r.char_count }));
+  const wsForChain = clipped.map(r => ({ timestamp: new Date(r.timestamp).getTime(), char_count: r.char_count, recipient: r.recipient }));
   const { nChains, idleCount } = detectIdleChains(wsForChain);
   const pctIdle = nWhispers > 0 ? idleCount / nWhispers : 0;
 
@@ -1561,20 +1563,13 @@ function scoreSession(whispers, numStudents, numQueued, courseId, isWeek1 = fals
   const activeMinutes = durationMin;
   const { longGapCount, maxGap, longGapPct } = getLongGapStats(gapsSec, activeSec);
 
-  // WOOT now has its own benchmarks derived from WOOT sessions (no longer borrows adv_math)
-  const scoringTier = tier;
+  // WOOT uses adv_math benchmarks (no WOOT training data available)
+  const scoringTier = tier === "woot" ? "adv_math" : tier;
   const t = TIER_STATS;
-  // Class-size band: volume, queue and coverage are benchmarked within tier AND size band,
-  // because assistant output does not scale with class size. Pacing/long-gap are tier-only.
-  const sizeBand = getSizeBand(scoringTier, numStudents);
-  const bVol = getBench("wps", scoringTier, sizeBand);
-  const bQue = getBench("wpq", scoringTier, sizeBand);
-  const bC1  = getBench("cov1", scoringTier, sizeBand);
-  const bC2  = getBench("cov2", scoringTier, sizeBand);
-  const sVol   = scoreMetric(wps, bVol[0], bVol[1], bVol[2], false, 20);
-  const sQueue = scoreMetric(wpq, bQue[0], bQue[1], bQue[2], false, 20);
-  const sCov1  = scoreMetric(coverage1plus, bC1[0], bC1[1], bC1[2], false, 10);
-  const sCov2  = scoreMetric(coverage2plus, bC2[0], bC2[1], bC2[2], false, 10);
+  const sVol   = scoreMetric(wps, t.wps_p25[scoringTier], t.wps_p50[scoringTier], t.wps_p75[scoringTier], false, 20);
+  const sQueue = scoreMetric(wpq, t.wpq_p25[scoringTier], t.wpq_p50[scoringTier], t.wpq_p75[scoringTier], false, 20);
+  const sCov1  = scoreMetric(coverage1plus, t.cov1_p25[scoringTier], t.cov1_p50[scoringTier], t.cov1_p75[scoringTier], false, 10);
+  const sCov2  = scoreMetric(coverage2plus, t.cov2_p25[scoringTier], t.cov2_p50[scoringTier], t.cov2_p75[scoringTier], false, 10);
   const sPace  = scoreMetric(medianGap, t.gap_p25[scoringTier], t.gap_p50[scoringTier], t.gap_p75[scoringTier], true, 30);
   const sLongGap = scoreMetric(longGapPct, t.lg_p25[scoringTier], t.lg_p50[scoringTier], t.lg_p75[scoringTier], true, 10);
   const total  = sVol + sQueue + sCov1 + sCov2 + sPace + sLongGap;
@@ -1586,7 +1581,6 @@ function scoreSession(whispers, numStudents, numQueued, courseId, isWeek1 = fals
 
   return {
     tier, tierLabel: TIER_LABELS[tier],
-    sizeBand, sizeBandLabel: ["Small","Mid","Large"][sizeBand],
     nWhispers, uniqueRecipients, numStudents, numQueued,
     wps: +wps.toFixed(3), wpq: +wpq.toFixed(4), avgChar,
     coverage1plus: +coverage1plus.toFixed(3), coverage2plus: +coverage2plus.toFixed(3),
@@ -1714,14 +1708,13 @@ function SessionScoreCard({ result, sessionLabel }) {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8 }}>
             {[
               { label: "Tier", value: tierLabel },
-              { label: "Class Size Band", value: `${result.sizeBandLabel} (${numStudents} stu)` },
               { label: "Whispers / Student", value: wps },
               { label: "Whispers / 100 Queued", value: (result.wpq * 100).toFixed(2) },
               { label: "Broad Coverage (1+)", value: (coverage1plus * 100).toFixed(0) + "%" },
               { label: "Deep Coverage (2+)", value: (coverage2plus * 100).toFixed(0) + "%" },
               { label: "Median Gap", value: medianGap + "s" },
               { label: "Avg Char Count", value: avgChar },
-              { label: "Max Gap", value: maxGap >= 60 ? `${Math.floor(maxGap/60)}m ${Math.round(maxGap%60)}s` : `${maxGap}s`, warn: maxGap > 300 },
+              { label: "Max Gap", value: maxGap >= 60 ? Math.floor(maxGap/60) + "m " + Math.round(maxGap - Math.floor(maxGap/60)*60) + "s" : `${maxGap}s`, warn: maxGap > 300 },
               { label: "Long Gaps (5+ min)", value: longGapCount, warn: longGapCount >= 1 },
               { label: "% Session in Long Gaps", value: (longGapPct * 100).toFixed(1) + "%", warn: longGapPct >= 0.20 },
               { label: "Unique Recipients", value: `${uniqueRecipients} / ${numStudents}` },
@@ -1780,16 +1773,6 @@ function AssistantQualityTab() {
     setResults(null); setError("");
   };
 
-  const handleSelectAllShelf = () => {
-    const allSelected = shelf.length > 0 && shelf.every(item => whisperSources.some(s => s.name === item.label));
-    if (allSelected) {
-      setWhisperSources([]);
-    } else {
-      setWhisperSources(shelf.map(item => ({ text: toCSV(item.rows), name: item.label })));
-    }
-    setResults(null); setError("");
-  };
-
   const handleModeSwitch = (newMode) => {
     setWhisperMode(newMode);
     setWhisperSources([]);
@@ -1839,18 +1822,11 @@ function AssistantQualityTab() {
 
       // Score each matching session
       const scoredSessions = [];
-      const unrecognizedCourses = {};  // course_id -> count of dropped sessions
       for (const s of sessions) {
         const date = (s.lesson_date || "").slice(0, 10);
         const key = `${s.assistant}|${date}`;
         const whispers = whispersByKey[key] || [];
         if (!whispers.length) continue;
-        // Course must map to a scoring tier; otherwise the session can't be scored.
-        if (!COURSE_TIERS[s.course_id]) {
-          const cid = s.course_id || "(blank)";
-          unrecognizedCourses[cid] = (unrecognizedCourses[cid] || 0) + 1;
-          continue;
-        }
         const result = scoreSession(
           whispers,
           parseInt(s.num_students) || 0,
@@ -1862,21 +1838,9 @@ function AssistantQualityTab() {
         scoredSessions.push({ assistant: s.assistant, date, courseId: s.course_id, classId: s.class_id, lesson: s.lesson, result });
       }
 
-      const unrecognizedList = Object.entries(unrecognizedCourses)
-        .map(([c, n]) => `${c} (${n} session${n !== 1 ? "s" : ""})`);
-
       if (!scoredSessions.length) {
-        if (unrecognizedList.length) {
-          setError(`No sessions could be scored: unrecognized course${unrecognizedList.length !== 1 ? "s" : ""} ${unrecognizedList.join(", ")}. Add ${unrecognizedList.length !== 1 ? "these courses" : "this course"} to the COURSE_TIERS table in the code (mapping to a tier: intro_math, interm_math, adv_math, woot, physics, or cs).`);
-        } else {
-          setError("No matching sessions found. Make sure assistant names and dates align between the ZoomData and whisper log files.");
-        }
+        setError("No matching sessions found. Make sure assistant names and dates align between the ZoomData and whisper log files.");
         return;
-      }
-
-      // Warn (but don't fail) about recognized-but-dropped courses when some sessions did score
-      if (unrecognizedList.length) {
-        warn.push(`Unrecognized course${unrecognizedList.length !== 1 ? "s" : ""} skipped: ${unrecognizedList.join(", ")}. Add ${unrecognizedList.length !== 1 ? "them" : "it"} to COURSE_TIERS to include ${unrecognizedList.length !== 1 ? "those sessions" : "that session"}.`);
       }
 
       // Warn about senders in whisper logs not found in ZoomData
@@ -1941,22 +1905,6 @@ function AssistantQualityTab() {
     return +(sessions.reduce((n, s) => n + (s.result.scores[key] ?? 0), 0) / sessions.length).toFixed(1);
   };
 
-  // Raw underlying stat behind each score dimension (for growth view)
-  const DIM_RAW = {
-    volume:  { get: r => r.wps ?? 0,                    fmt: v => v.toFixed(2),        unit: "/stu" },
-    queue:   { get: r => (r.wpq ?? 0) * 100,            fmt: v => v.toFixed(1),        unit: "/100q" },
-    cov1:    { get: r => (r.coverage1plus ?? 0) * 100,  fmt: v => Math.round(v) + "%", unit: "reached" },
-    cov2:    { get: r => (r.coverage2plus ?? 0) * 100,  fmt: v => Math.round(v) + "%", unit: "2x+" },
-    pacing:  { get: r => r.medianGap ?? 0,              fmt: v => Math.round(v) + "s", unit: "med gap" },
-    longGap: { get: r => (r.longGapPct ?? 0) * 100,     fmt: v => Math.round(v) + "%", unit: "in gaps" },
-  };
-
-  const periodRawAvg = (sessions, key) => {
-    if (!sessions.length || !DIM_RAW[key]) return null;
-    const get = DIM_RAW[key].get;
-    return sessions.reduce((n, s) => n + get(s.result), 0) / sessions.length;
-  };
-
   const filteredSessions = useMemo(() => {
     if (!activeData) return [];
     let ss = [...activeData.sessions];
@@ -1968,7 +1916,6 @@ function AssistantQualityTab() {
   }, [activeData, filterTier, sortBy]);
 
   const ready = zoomData.text && whisperSources.length > 0;
-  const allShelfSelected = shelf.length > 0 && shelf.every(item => whisperSources.some(s => s.name === item.label));
 
   return (
     <div>
@@ -2054,17 +2001,6 @@ function AssistantQualityTab() {
                 <input type="file" accept=".csv" multiple onChange={handleWhisperUpload} style={{ display: "none" }} />
               </label>
             ) : (
-              <>
-              {shelf.length > 0 && (
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                  <span style={{ fontSize: 10, color: C.textDim, fontFamily: FONT_UI }}>
-                    {whisperSources.length} of {shelf.length} selected
-                  </span>
-                  <button onClick={handleSelectAllShelf} style={{ ...sx.btn(allShelfSelected), fontSize: 11 }}>
-                    {allShelfSelected ? "☒ Unselect All" : "☑ Select All"}
-                  </button>
-                </div>
-              )}
               <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 160, overflowY: "auto",
                 border: `1px solid ${C.border}`, borderRadius: 8, padding: 6, background: C.surfaceAlt }}>
                 {shelf.length === 0
@@ -2087,7 +2023,6 @@ function AssistantQualityTab() {
                   })
                 }
               </div>
-              </>
             )}
             {whisperSources.length > 0 && whisperMode === "shelf" && (
               <div style={{ fontSize: 10, color: C.accent, fontFamily: FONT_UI, marginTop: 4 }}>
@@ -2230,113 +2165,73 @@ function AssistantQualityTab() {
                   const scoreBefore = periodScore(before);
                   const scoreAfter  = periodScore(after);
                   const delta = scoreBefore !== null && scoreAfter !== null ? +(scoreAfter - scoreBefore).toFixed(1) : null;
-                  const dims = [
-                    { key: "volume",  label: "Volume",   max: 20 },
-                    { key: "queue",   label: "Queue",    max: 20 },
-                    { key: "cov1",    label: "Broad",    max: 10 },
-                    { key: "cov2",    label: "Deep",     max: 10 },
-                    { key: "pacing",  label: "Pacing",   max: 30 },
-                    { key: "longGap", label: "Long Gap", max: 10 },
-                  ];
                   const topColor = delta === null ? C.textMuted : delta > 0 ? C.accent : delta < 0 ? C.danger : C.warn;
                   return (
                     <div key={a.assistant} style={{ ...sx.card, marginBottom: 12, borderTop: `3px solid ${topColor}` }}>
-                      {/* Header: name + score summary */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", justifyContent: "space-between" }}>
-                        <div style={{ minWidth: 140 }}>
-                          <div style={{ fontSize: 14, fontWeight: 700, color: C.text, fontFamily: FONT_UI }}>{a.assistant}</div>
-                          <div style={{ fontSize: 10, color: C.textMuted, fontFamily: FONT_UI, marginTop: 2 }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 20, flexWrap: "wrap" }}>
+                        {/* Name + scores */}
+                        <div style={{ minWidth: 180, flexShrink: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: C.text, fontFamily: FONT_UI, marginBottom: 4 }}>{a.assistant}</div>
+                          <div style={{ fontSize: 10, color: C.textMuted, fontFamily: FONT_UI, marginBottom: 10 }}>
                             {before.length} before · {after.length} after
                           </div>
-                        </div>
-                        {/* Score badges */}
-                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                          <div style={{ textAlign: "center" }}>
-                            <div style={{ ...sx.label, marginBottom: 2 }}>Before</div>
-                            <div style={{ fontSize: 22, fontWeight: 700, color: scoreBefore !== null ? (scoreBefore >= 80 ? C.accent : scoreBefore >= 60 ? C.warn : C.danger) : C.textDim, fontFamily: FONT }}>
-                              {scoreBefore !== null ? scoreBefore : "—"}
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <div style={{ textAlign: "center" }}>
+                              <div style={{ ...sx.label, marginBottom: 2 }}>Before</div>
+                              <div style={{ fontSize: 22, fontWeight: 700, color: scoreBefore !== null ? (scoreBefore >= 80 ? C.accent : scoreBefore >= 60 ? C.warn : C.danger) : C.textDim, fontFamily: FONT }}>
+                                {scoreBefore !== null ? scoreBefore : "—"}
+                              </div>
                             </div>
-                            <div style={{ fontSize: 9, color: C.textDim, fontFamily: FONT_UI }}>{before.length} session{before.length !== 1 ? "s" : ""}</div>
+                            <div style={{ fontSize: 18, color: C.textDim }}>→</div>
+                            <div style={{ textAlign: "center" }}>
+                              <div style={{ ...sx.label, marginBottom: 2 }}>After</div>
+                              <div style={{ fontSize: 22, fontWeight: 700, color: scoreAfter !== null ? (scoreAfter >= 80 ? C.accent : scoreAfter >= 60 ? C.warn : C.danger) : C.textDim, fontFamily: FONT }}>
+                                {scoreAfter !== null ? scoreAfter : "—"}
+                              </div>
+                            </div>
+                            {delta !== null && (
+                              <div style={{ textAlign: "center", padding: "4px 10px", borderRadius: 20,
+                                background: `${topColor}18`, border: `1px solid ${topColor}44` }}>
+                                <div style={{ fontSize: 16, fontWeight: 700, color: topColor, fontFamily: FONT }}>
+                                  {delta > 0 ? "+" : ""}{delta}
+                                </div>
+                                <div style={{ fontSize: 9, color: topColor, fontFamily: FONT_UI, fontWeight: 700 }}>
+                                  {delta > 0 ? "▲ Improved" : delta < 0 ? "▼ Declined" : "No change"}
+                                </div>
+                              </div>
+                            )}
                           </div>
-                          <div style={{ fontSize: 20, color: C.textDim }}>→</div>
-                          <div style={{ textAlign: "center" }}>
-                            <div style={{ ...sx.label, marginBottom: 2 }}>After</div>
-                            <div style={{ fontSize: 22, fontWeight: 700, color: scoreAfter !== null ? (scoreAfter >= 80 ? C.accent : scoreAfter >= 60 ? C.warn : C.danger) : C.textDim, fontFamily: FONT }}>
-                              {scoreAfter !== null ? scoreAfter : "—"}
-                            </div>
-                            <div style={{ fontSize: 9, color: C.textDim, fontFamily: FONT_UI }}>{after.length} session{after.length !== 1 ? "s" : ""}</div>
-                          </div>
-                          {delta !== null && (
-                            <div style={{ textAlign: "center", padding: "6px 14px", borderRadius: 20,
-                              background: `${topColor}18`, border: `1px solid ${topColor}44`, marginLeft: 4 }}>
-                              <div style={{ fontSize: 18, fontWeight: 700, color: topColor, fontFamily: FONT }}>
-                                {delta > 0 ? "+" : ""}{delta}
-                              </div>
-                              <div style={{ fontSize: 9, color: topColor, fontFamily: FONT_UI, fontWeight: 700 }}>
-                                {delta > 0 ? "▲ Improved" : delta < 0 ? "▼ Declined" : "No change"}
-                              </div>
-                            </div>
-                          )}
                         </div>
-                      </div>
-
-                      {/* Dimension breakdown — vertical full-width rows */}
-                      <div style={{ marginTop: 16, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
-                        <div style={{ display: "grid", gridTemplateColumns: "120px 1fr 1fr 100px",
-                          gap: 10, padding: "8px 14px", background: C.navy, borderBottom: `1px solid ${C.border}` }}>
-                          {[["Dimension","left"],["Underlying stat","center"],["Score points","center"],["Change","right"]].map(([h, align]) => (
-                            <div key={h} style={{ fontSize: 10, color: "#9ab0c8", textTransform: "uppercase",
-                              letterSpacing: "0.06em", fontFamily: FONT_UI, textAlign: align, fontWeight: 700 }}>{h}</div>
-                          ))}
+                        {/* Dimension breakdown */}
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginLeft: "auto" }}>
+                          {[
+                            { key: "volume",  label: "Volume",   max: 20 },
+                            { key: "queue",   label: "Queue",    max: 20 },
+                            { key: "cov1",    label: "Broad",    max: 10 },
+                            { key: "cov2",    label: "Deep",     max: 10 },
+                            { key: "pacing",  label: "Pacing",   max: 30 },
+                            { key: "longGap", label: "Long Gap", max: 10 },
+                          ].map(({ key, label, max }) => {
+                            const bVal = periodDimAvg(before, key);
+                            const aVal = periodDimAvg(after, key);
+                            const dimDelta = bVal !== null && aVal !== null ? +(aVal - bVal).toFixed(1) : null;
+                            const dimColor = dimDelta === null ? C.textDim : dimDelta > 0 ? C.accent : dimDelta < 0 ? C.danger : C.warn;
+                            return (
+                              <div key={key} style={{ textAlign: "center", background: C.surfaceAlt,
+                                borderRadius: 6, padding: "4px 8px", border: "1px solid " + C.border,
+                                borderTop: "2px solid " + dimColor, minWidth: 52 }}>
+                                <div style={{ ...sx.label, marginBottom: 1, fontSize: 9 }}>{label}</div>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: dimColor, fontFamily: FONT }}>
+                                  {dimDelta !== null ? (dimDelta > 0 ? "+" : "") + dimDelta : "\u2014"}
+                                </div>
+                                <div style={{ fontSize: 9, color: C.textDim, fontFamily: FONT_UI }}>
+                                  {bVal !== null ? bVal : "\u2014"} {"\u2192"} {aVal !== null ? aVal : "\u2014"}
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                        {dims.map(({ key, label, max }, idx) => {
-                          const bVal = periodDimAvg(before, key);
-                          const aVal = periodDimAvg(after, key);
-                          const dimDelta = bVal !== null && aVal !== null ? +(aVal - bVal).toFixed(1) : null;
-                          const dimColor = dimDelta === null ? C.textDim : dimDelta > 0 ? C.accent : dimDelta < 0 ? C.danger : C.warn;
-                          const bRaw = periodRawAvg(before, key);
-                          const aRaw = periodRawAvg(after, key);
-                          const cfg = DIM_RAW[key];
-                          return (
-                            <div key={key} style={{ display: "grid", gridTemplateColumns: "120px 1fr 1fr 100px",
-                              gap: 10, padding: "12px 14px", alignItems: "center",
-                              borderBottom: idx < dims.length - 1 ? `1px solid ${C.border}` : "none",
-                              background: idx % 2 === 0 ? "transparent" : C.surfaceAlt,
-                              borderLeft: `3px solid ${dimColor}` }}>
-                              {/* Label */}
-                              <div style={{ fontSize: 12, fontWeight: 700, color: C.text, fontFamily: FONT_UI }}>
-                                {label}<span style={{ fontSize: 10, color: C.textDim, fontWeight: 400 }}> /{max}</span>
-                              </div>
-                              {/* Underlying stat — prominent */}
-                              <div style={{ textAlign: "center", fontFamily: FONT }}>
-                                {cfg ? (
-                                  <span style={{ fontSize: 15, fontWeight: 700, color: C.text }}>
-                                    {bRaw !== null ? cfg.fmt(bRaw) : "—"}
-                                    <span style={{ color: C.textDim, fontWeight: 400, margin: "0 7px" }}>→</span>
-                                    {aRaw !== null ? cfg.fmt(aRaw) : "—"}
-                                    <span style={{ fontSize: 10, color: C.textMuted, fontWeight: 400, marginLeft: 6, fontFamily: FONT_UI }}>{cfg.unit}</span>
-                                  </span>
-                                ) : <span style={{ color: C.textDim }}>—</span>}
-                              </div>
-                              {/* Score points */}
-                              <div style={{ textAlign: "center", fontFamily: FONT, fontSize: 12, color: C.textMuted }}>
-                                {bVal !== null ? bVal : "—"}
-                                <span style={{ color: C.textDim, margin: "0 6px" }}>→</span>
-                                {aVal !== null ? aVal : "—"}
-                                <span style={{ fontSize: 10, color: C.textDim, marginLeft: 5 }}>pts</span>
-                              </div>
-                              {/* Change pill */}
-                              <div style={{ textAlign: "right" }}>
-                                <span style={{ display: "inline-block", minWidth: 60, textAlign: "center",
-                                  fontSize: 13, fontWeight: 700, color: dimColor, fontFamily: FONT,
-                                  background: `${dimColor}14`, border: `1px solid ${dimColor}33`,
-                                  borderRadius: 12, padding: "3px 10px" }}>
-                                  {dimDelta === null ? "—" : dimDelta > 0 ? `▲ +${dimDelta}` : dimDelta < 0 ? `▼ ${Math.abs(dimDelta)}` : "0"}
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })}
+                        </div>
                       </div>
                     </div>
                   );
@@ -2426,7 +2321,7 @@ function AssistantQualityTab() {
                             {key === "volume" ? rawAvg.toFixed(2) :
                              key === "pacing" ? `${Math.round(rawAvg)}s` :
                              key === "queue"  ? rawAvg.toFixed(1) :
-                             `${Math.round(rawAvg)}%`}
+                             Math.round(rawAvg) + "%"}
                             <span style={{ color: C.textDim }}> {unit}</span>
                           </div>
                         )}
