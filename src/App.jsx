@@ -2231,7 +2231,6 @@ function AssistantQualityTab() {
                             );
                           })}
                         </div>
-                        </div>
                       </div>
                     </div>
                   );
