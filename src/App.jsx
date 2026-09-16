@@ -963,8 +963,8 @@ function GapPanel({ instructor, classId, color, gaps, stats, hist, sessionData }
         <span style={{ fontSize: 11, color: C.textMuted, fontFamily: FONT_UI }}>class {classId} · {stats.total} msgs</span>
       </div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
-        {[{l:"Median",v:`${stats.median}m`},{l:"P90",v:`${stats.p90}m`},{l:"Msg/Min",v:stats.avgMsgPerMin},{l:"Std Dev",v:`${stats.stdDev}m`,c:stats.stdDev>3?C.danger:stats.stdDev>1.5?C.warn:color},{l:">5min",v:`${stats.longWaitPct}%`,c:stats.longWaitPct>20?C.danger:C.warn}].map(k=>(
-          <div key={k.l} style={{ flex:"1 1 60px", background: C.surfaceAlt, borderRadius: 6, padding: "6px 8px", borderTop: `2px solid ${k.c||color}` }}>
+        {[{l:"Median",v:stats.median+"m"},{l:"P90",v:stats.p90+"m"},{l:"Msg/Min",v:stats.avgMsgPerMin},{l:"Std Dev",v:stats.stdDev+"m",c:stats.stdDev>3?C.danger:stats.stdDev>1.5?C.warn:color},{l:">5min",v:stats.longWaitPct+"%",c:stats.longWaitPct>20?C.danger:C.warn}].map(k=>(
+          <div key={k.l} style={{ flex:"1 1 60px", background: C.surfaceAlt, borderRadius: 6, padding: "6px 8px", borderTop: "2px solid " + (k.c||color) }}>
             <div style={sx.label}>{k.l}</div>
             <div style={{ fontSize: 14, fontWeight: 700, color: k.c||color, fontFamily: FONT }}>{k.v}</div>
           </div>
@@ -1105,7 +1105,7 @@ function SessionCard({ session: s, index: i, color }) {
         <span style={{ fontSize: 11, color: C.textMuted, fontFamily: FONT }}>{s.stats.total} msgs</span>
       </div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
-        {[{l:"Median",v:`${s.stats.median}m`},{l:"P90",v:`${s.stats.p90}m`},{l:"Msg/Min",v:s.stats.avgMsgPerMin},{l:"Std Dev",v:`${s.stats.stdDev}m`,c:s.stats.stdDev>3?C.danger:s.stats.stdDev>1.5?C.warn:color},{l:">5min",v:`${s.stats.longWaitPct}%`,c:s.stats.longWaitPct>20?C.danger:C.warn}].map(k=>(
+        {[{l:"Median",v:s.stats.median+"m"},{l:"P90",v:s.stats.p90+"m"},{l:"Msg/Min",v:s.stats.avgMsgPerMin},{l:"Std Dev",v:s.stats.stdDev+"m",c:s.stats.stdDev>3?C.danger:s.stats.stdDev>1.5?C.warn:color},{l:">5min",v:s.stats.longWaitPct+"%",c:s.stats.longWaitPct>20?C.danger:C.warn}].map(k=>(
           <div key={k.l} style={{ flex:"1 1 55px", background:C.surfaceAlt, borderRadius:6, padding:"5px 7px", borderTop:`2px solid ${k.c||color}` }}>
             <div style={sx.label}>{k.l}</div>
             <div style={{ fontSize:13, fontWeight:700, color:k.c||color, fontFamily:FONT }}>{k.v}</div>
@@ -1263,7 +1263,7 @@ function MessageCounterTab({ onGoToParser }) {
               const total = rows.reduce((s,r) => s+r.count, 0);
               return (
                 <StatCard key={inst} label={inst} value={total} color={instColors[inst]}
-                  sub={`${rows.length} lessons · avg ${(total/rows.length).toFixed(1)}/lesson`} />
+                  sub={rows.length + " lessons · avg " + (total/rows.length).toFixed(1) + "/lesson"} />
               );
             })}
           </div>
@@ -1408,7 +1408,7 @@ function getFlags(pctPraise, praise_p75, praise_p90, pctIdle, nChains, longGapCo
 
   // Idle chain flags
   if (nChains === 1 || nChains === 2)
-    flags.push({ level: "critical", text: `${nChains} idle-whisper chain${nChains > 1 ? "s" : ""} detected` });
+    flags.push({ level: "critical", text: nChains + " idle-whisper chain" + (nChains > 1 ? "s" : "") + " detected" });
   else if (nChains >= 3)
     flags.push({ level: "warning", text: `${nChains} idle-whisper chains detected` });
 
@@ -1647,7 +1647,7 @@ function SessionScoreCard({ result, sessionLabel }) {
   const flagIcons  = { critical: "⚑", warning: "⚠", note: "ℹ" };
 
   return (
-    <div style={{ ...sx.card, borderTop: `3px solid ${scores.total >= 80 ? C.accent : scores.total >= 60 ? C.warn : C.danger}`, marginBottom: 16 }}>
+    <div style={{ ...sx.card, borderTop: "3px solid " + (scores.total >= 80 ? C.accent : scores.total >= 60 ? C.warn : C.danger), marginBottom: 16 }}>
       {/* Header row */}
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
         <ScoreBadge score={scores.total} />
@@ -1993,7 +1993,7 @@ function AssistantQualityTab() {
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: whisperSources.length ? C.accent : C.textMuted, fontFamily: FONT_UI }}>
                     {whisperSources.length
-                      ? `${whisperSources.length} file${whisperSources.length > 1 ? "s" : ""} loaded: ${whisperSources.map(s=>s.name).join(", ")}`
+                      ? (whisperSources.length + " file" + (whisperSources.length > 1 ? "s" : "") + " loaded: " + whisperSources.map(s=>s.name).join(", "))
                       : "Select one or more CSV files"}
                   </div>
                   <div style={{ fontSize: 10, color: C.textDim, fontFamily: FONT_UI }}>Hold Ctrl/Cmd to select multiple</div>
