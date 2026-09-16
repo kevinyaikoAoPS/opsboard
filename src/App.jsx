@@ -916,7 +916,7 @@ function ParserTab() {
                 const statusColor = { pending: C.textMuted, processing: C.warn, done: C.accent, error: C.danger }[item.status];
                 const statusIcon  = { pending: "⏳", processing: "⚙️", done: "✓", error: "✗" }[item.status];
                 return (
-                  <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderBottom: i < queue.length-1 ? `1px solid ${C.border}` : "none", background: i % 2 === 0 ? "transparent" : C.surfaceAlt }}>
+                  <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderBottom: i < queue.length-1 ? "1px solid " + C.border : "none", background: i % 2 === 0 ? "transparent" : C.surfaceAlt }}>
                     <span style={{ fontSize: 14, minWidth: 20, textAlign: "center" }}>{statusIcon}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 12, fontWeight: 600, color: C.text, fontFamily: FONT_UI, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
