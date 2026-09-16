@@ -1467,6 +1467,7 @@ function detectIdleChains(whispers) {
   //      for the first time. Catches chains that are NOT anomalously fast because
   //      the whole session is fast (the chain IS most of the session).
   let nChains = 0, idleCount = 0;
+  const idleIdx = new Set();   // indices of whispers inside flagged chains
   const gaps = [];
   for (let i = 1; i < whispers.length; i++) gaps.push(whispers[i].timestamp - whispers[i-1].timestamp);
   const validGaps = gaps.filter(g => g > 0 && g < 7200000);
@@ -1513,11 +1514,12 @@ function detectIdleChains(whispers) {
       if (isFast || isRosterScan) {
         nChains++;
         idleCount += chainLen;
+        for (let k = i; k < j; k++) idleIdx.add(k);
       }
       i = j;
     } else i++;
   }
-  return { nChains, idleCount };
+  return { nChains, idleCount, idleIdx };
 }
 
 function scoreSession(whispers, numStudents, numQueued, courseId, isWeek1 = false) {
@@ -1541,106 +1543,147 @@ function scoreSession(whispers, numStudents, numQueued, courseId, isWeek1 = fals
     return t >= sessionStart && t <= sessionEnd;
   });
   if (!clipped.length) return null;
-  const nWhispers = clipped.length;
-  // Coverage split: 1+ and 2+
-  const recipientCounts = {};
-  clipped.forEach(r => { recipientCounts[r.recipient] = (recipientCounts[r.recipient] || 0) + 1; });
-  const n1plus = Object.values(recipientCounts).filter(c => c >= 1).length;
-  const n2plus = Object.values(recipientCounts).filter(c => c >= 2).length;
-  const coverage1plus = numStudents > 0 ? n1plus / numStudents : 0;
-  const coverage2plus = numStudents > 0 ? n2plus / numStudents : 0;
 
-  const uniqueRecipients = n1plus;
-  const wps = numStudents > 0 ? nWhispers / numStudents : 0;
-  const wpq = numQueued > 0 ? nWhispers / numQueued : 0;
-
-  // Median gap — computed across full session window (start to end), not just first-to-last whisper
-  // This captures gaps at the beginning (late start) and end (early finish) of class
+  const scoringTier = tier;   // WOOT has its own benchmarks; no longer borrows adv_math
+  const sizeBand = getSizeBand(scoringTier, numStudents);
   const sessionStartMs = sessionStart.getTime();
   const sessionEndMs   = sessionEnd.getTime();
-  const clippedTs = [sessionStartMs, ...clipped.map(r => new Date(r.timestamp).getTime()), sessionEndMs];
-  const gapsSec = [];
-  for (let i = 1; i < clippedTs.length; i++) {
-    const g = (clippedTs[i] - clippedTs[i-1]) / 1000;
-    if (g > 0 && g < 7200) gapsSec.push(g);
-  }
-  const medianGap = gapsSec.length
-    ? [...gapsSec].sort((a,b)=>a-b)[Math.floor(gapsSec.length/2)] : 0;
+  const activeSec = durationMin * 60;
+  const activeMinutes = durationMin;
 
-  // Multi-whisper / praise flags
+  // ── Metric computation, reusable across the full and fluff-filtered whisper sets ──
+  // Gaps are always bookended by the session window, so removing whispers correctly
+  // widens the gaps that those whispers were papering over.
+  const computeMetrics = (list) => {
+    const n = list.length;
+    const recipientCounts = {};
+    list.forEach(r => { recipientCounts[r.recipient] = (recipientCounts[r.recipient] || 0) + 1; });
+    const counts = Object.values(recipientCounts);
+    const n1plus = counts.filter(c => c >= 1).length;
+    const n2plus = counts.filter(c => c >= 2).length;
+    const coverage1plus = numStudents > 0 ? n1plus / numStudents : 0;
+    const coverage2plus = numStudents > 0 ? n2plus / numStudents : 0;
+    const wps = numStudents > 0 ? n / numStudents : 0;
+    const wpq = numQueued > 0 ? n / numQueued : 0;
+
+    const tsList = [sessionStartMs, ...list.map(r => new Date(r.timestamp).getTime()), sessionEndMs];
+    const gapsSec = [];
+    for (let i = 1; i < tsList.length; i++) {
+      const g = (tsList[i] - tsList[i-1]) / 1000;
+      if (g > 0 && g < 7200) gapsSec.push(g);
+    }
+    const medianGap = gapsSec.length
+      ? [...gapsSec].sort((a,b)=>a-b)[Math.floor(gapsSec.length/2)] : 0;
+    const { longGapCount, maxGap, longGapPct } = getLongGapStats(gapsSec, activeSec);
+    const avgChar = n ? +(list.reduce((s,r) => s + (r.char_count||0), 0) / n).toFixed(1) : 0;
+
+    const t = TIER_STATS;
+    const bVol = getBench("wps",  scoringTier, sizeBand);
+    const bQue = getBench("wpq",  scoringTier, sizeBand);
+    const bC1  = getBench("cov1", scoringTier, sizeBand);
+    const bC2  = getBench("cov2", scoringTier, sizeBand);
+    const sVol     = scoreMetric(wps, bVol[0], bVol[1], bVol[2], false, 20);
+    const sQueue   = scoreMetric(wpq, bQue[0], bQue[1], bQue[2], false, 20);
+    const sCov1    = scoreMetric(coverage1plus, bC1[0], bC1[1], bC1[2], false, 10);
+    const sCov2    = scoreMetric(coverage2plus, bC2[0], bC2[1], bC2[2], false, 10);
+    const sPace    = scoreMetric(medianGap, t.gap_p25[scoringTier], t.gap_p50[scoringTier], t.gap_p75[scoringTier], true, 30);
+    const sLongGap = scoreMetric(longGapPct, t.lg_p25[scoringTier], t.lg_p50[scoringTier], t.lg_p75[scoringTier], true, 10);
+
+    return {
+      nWhispers: n, uniqueRecipients: n1plus,
+      wps: +wps.toFixed(3), wpq: +wpq.toFixed(4), avgChar,
+      coverage1plus: +coverage1plus.toFixed(3), coverage2plus: +coverage2plus.toFixed(3),
+      medianGap: +medianGap.toFixed(1),
+      longGapCount, longGapPct: +longGapPct.toFixed(3), maxGap: +maxGap.toFixed(0),
+      scores: {
+        volume: +sVol.toFixed(1), queue: +sQueue.toFixed(1),
+        cov1: +sCov1.toFixed(1), cov2: +sCov2.toFixed(1),
+        pacing: +sPace.toFixed(1), longGap: +sLongGap.toFixed(1),
+        total: +(sVol + sQueue + sCov1 + sCov2 + sPace + sLongGap).toFixed(1),
+      }
+    };
+  };
+
+  // ── Detection runs on the FULL clipped set ──
+  // Chains are defined by consecutive timing, so they cannot be detected on
+  // an already-filtered list. Detect first, filter second.
+  const wsForChain = clipped.map(r => ({ timestamp: new Date(r.timestamp).getTime(), char_count: r.char_count, recipient: r.recipient }));
+  const { nChains, idleCount, idleIdx } = detectIdleChains(wsForChain);
+  const pctIdle = clipped.length > 0 ? idleCount / clipped.length : 0;
+
   const tsMap = {};
   clipped.forEach(r => {
     const key = `${r.timestamp}|${r.char_count}`;
     tsMap[key] = (tsMap[key]||0) + 1;
   });
-  let nPraiseMulti = 0;
-  clipped.forEach(r => {
+  const praiseIdx = new Set();
+  clipped.forEach((r, i) => {
     const key = `${r.timestamp}|${r.char_count}`;
-    if (tsMap[key] > 1 && r.char_count <= 15) nPraiseMulti++;
+    if (tsMap[key] > 1 && r.char_count <= 15) praiseIdx.add(i);
   });
-  const pctPraise = nWhispers > 0 ? nPraiseMulti / nWhispers : 0;
+  const pctPraise = clipped.length > 0 ? praiseIdx.size / clipped.length : 0;
 
-  // Idle chain detection
-  const wsForChain = clipped.map(r => ({ timestamp: new Date(r.timestamp).getTime(), char_count: r.char_count, recipient: r.recipient }));
-  const { nChains, idleCount } = detectIdleChains(wsForChain);
-  const pctIdle = nWhispers > 0 ? idleCount / nWhispers : 0;
+  // ── Full result, plus the three exclusion combinations ──
+  const full = computeMetrics(clipped);
+  const keep = (drop) => clipped.filter((_, i) => !drop.has(i));
+  const bothIdx = new Set([...idleIdx, ...praiseIdx]);
+  const variants = {
+    idle:   computeMetrics(keep(idleIdx)),
+    praise: computeMetrics(keep(praiseIdx)),
+    both:   computeMetrics(keep(bothIdx)),
+  };
 
-  // Use full session duration for long gap % (not just first-to-last whisper)
-  const activeSec = durationMin * 60;
-  const activeMinutes = durationMin;
-  const { longGapCount, maxGap, longGapPct } = getLongGapStats(gapsSec, activeSec);
-
-  // WOOT now has its own benchmarks derived from WOOT sessions (no longer borrows adv_math)
-  const scoringTier = tier;
+  // Flags always describe the full, unfiltered session
   const t = TIER_STATS;
-  // Class-size band: volume, queue and coverage are benchmarked within tier AND size band,
-  // because assistant output does not scale with class size. Pacing/long-gap are tier-only.
-  const sizeBand = getSizeBand(scoringTier, numStudents);
-  const bVol = getBench("wps", scoringTier, sizeBand);
-  const bQue = getBench("wpq", scoringTier, sizeBand);
-  const bC1  = getBench("cov1", scoringTier, sizeBand);
-  const bC2  = getBench("cov2", scoringTier, sizeBand);
-  const sVol   = scoreMetric(wps, bVol[0], bVol[1], bVol[2], false, 20);
-  const sQueue = scoreMetric(wpq, bQue[0], bQue[1], bQue[2], false, 20);
-  const sCov1  = scoreMetric(coverage1plus, bC1[0], bC1[1], bC1[2], false, 10);
-  const sCov2  = scoreMetric(coverage2plus, bC2[0], bC2[1], bC2[2], false, 10);
-  const sPace  = scoreMetric(medianGap, t.gap_p25[scoringTier], t.gap_p50[scoringTier], t.gap_p75[scoringTier], true, 30);
-  const sLongGap = scoreMetric(longGapPct, t.lg_p25[scoringTier], t.lg_p50[scoringTier], t.lg_p75[scoringTier], true, 10);
-  const total  = sVol + sQueue + sCov1 + sCov2 + sPace + sLongGap;
-
   const flags = getFlags(pctPraise, t.praise_p75[scoringTier], t.praise_p90[scoringTier], pctIdle, nChains,
-                         longGapCount, longGapPct, maxGap, activeMinutes, courseId);
-
-  const avgChar = clipped.length ? +(clipped.reduce((s,r) => s + (r.char_count||0), 0) / clipped.length).toFixed(1) : 0;
+                         full.longGapCount, full.longGapPct, full.maxGap, activeMinutes, courseId);
 
   return {
     tier, tierLabel: TIER_LABELS[tier],
     sizeBand, sizeBandLabel: ["Small","Mid","Large"][sizeBand],
-    nWhispers, uniqueRecipients, numStudents, numQueued,
-    wps: +wps.toFixed(3), wpq: +wpq.toFixed(4), avgChar,
-    coverage1plus: +coverage1plus.toFixed(3), coverage2plus: +coverage2plus.toFixed(3),
-    medianGap: +medianGap.toFixed(1), pctPraise: +pctPraise.toFixed(3),
-    pctIdle: +pctIdle.toFixed(3), nChains, flags,
-    longGapCount, longGapPct: +longGapPct.toFixed(3),
-    maxGap: +maxGap.toFixed(0), activeMinutes: +activeMinutes.toFixed(1),
+    numStudents, numQueued,
+    ...full,
+    pctPraise: +pctPraise.toFixed(3), pctIdle: +pctIdle.toFixed(3), nChains, flags,
+    nIdleExcluded: idleIdx.size, nPraiseExcluded: praiseIdx.size, nBothExcluded: bothIdx.size,
+    variants,
+    activeMinutes: +activeMinutes.toFixed(1),
     expectedMinutes: getCourseDuration(courseId),
-    scores: {
-      volume: +sVol.toFixed(1), queue: +sQueue.toFixed(1),
-      cov1: +sCov1.toFixed(1), cov2: +sCov2.toFixed(1),
-      pacing: +sPace.toFixed(1), longGap: +sLongGap.toFixed(1),
-      total: +total.toFixed(1),
-    }
   };
 }
 
-function ScoreMeter({ label, value, max = 20, color }) {
+// Picks the metric set to display given the two exclusion toggles.
+// Returns the unfiltered result when both are off.
+function pickView(result, exIdle, exPraise) {
+  if (!result) return null;
+  if (exIdle && exPraise) return result.variants.both;
+  if (exIdle) return result.variants.idle;
+  if (exPraise) return result.variants.praise;
+  return result;
+}
+function excludedCount(result, exIdle, exPraise) {
+  if (!result) return 0;
+  if (exIdle && exPraise) return result.nBothExcluded;
+  if (exIdle) return result.nIdleExcluded;
+  if (exPraise) return result.nPraiseExcluded;
+  return 0;
+}
+
+function ScoreMeter({ label, value, max = 20, color, fullValue = null }) {
   const pct = Math.min(100, (value / max) * 100);
   const barColor = value < max * 0.4 ? C.danger : value < max * 0.7 ? C.warn : color || C.accent;
+  const showFull = fullValue !== null && fullValue !== value;
   return (
     <div style={{ marginBottom: 10 }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
         <span style={{ fontSize: 11, color: C.textMuted, fontFamily: FONT_UI }}>{label}</span>
-        <span style={{ fontSize: 12, fontWeight: 700, color: barColor, fontFamily: FONT }}>{value} <span style={{ color: C.textDim, fontWeight: 400 }}>/ {max}</span></span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: barColor, fontFamily: FONT }}>
+          {showFull && (
+            <span style={{ color: C.textDim, fontWeight: 400, marginRight: 6 }}>
+              {fullValue} {"\u2192"}
+            </span>
+          )}
+          {value} <span style={{ color: C.textDim, fontWeight: 400 }}>/ {max}</span>
+        </span>
       </div>
       <div style={{ height: 6, background: C.surfaceAlt, borderRadius: 3, overflow: "hidden", border: `1px solid ${C.border}` }}>
         <div style={{ height: "100%", width: `${pct}%`, background: barColor, borderRadius: 3, transition: "width 0.4s ease" }} />
@@ -1662,14 +1705,20 @@ function ScoreBadge({ score }) {
   );
 }
 
-function SessionScoreCard({ result, sessionLabel }) {
-  const { scores, tier, tierLabel, nWhispers, uniqueRecipients, numStudents, numQueued,
-    wps, avgChar, coverage1plus, coverage2plus, medianGap, pctPraise, pctIdle, nChains, flags,
-    longGapCount, longGapPct, maxGap, activeMinutes, expectedMinutes } = result;
+function SessionScoreCard({ result, sessionLabel, exIdle = false, exPraise = false }) {
+  const { tier, tierLabel, numStudents, numQueued,
+    pctPraise, pctIdle, nChains, flags, activeMinutes, expectedMinutes } = result;
+
+  const filtering = exIdle || exPraise;
+  const view = pickView(result, exIdle, exPraise);     // metrics actually displayed
+  const nDropped = excludedCount(result, exIdle, exPraise);
+  const scores = view.scores;
+  const { nWhispers, uniqueRecipients, wps, avgChar, coverage1plus, coverage2plus,
+          medianGap, longGapCount, longGapPct, maxGap } = view;
 
   const [expanded, setExpanded] = useState(false);
 
-  // Activity-based flags (always shown in header)
+  // Activity-based flags (always shown in header) — reflect the displayed view
   const activityFlags = [];
   if (scores.total < 50) activityFlags.push({ text: "Low overall — recommend observation", color: C.danger });
   if (scores.pacing < 8) activityFlags.push({ text: "Long idle gaps detected", color: C.danger });
@@ -1681,16 +1730,34 @@ function SessionScoreCard({ result, sessionLabel }) {
   const flagColors = { critical: C.danger, warning: C.warn, note: C.accent };
   const flagIcons  = { critical: "⚑", warning: "⚠", note: "ℹ" };
 
+  const scoreDelta = filtering ? +(scores.total - result.scores.total).toFixed(1) : null;
+
   return (
     <div style={{ ...sx.card, borderTop: `3px solid ${scores.total >= 80 ? C.accent : scores.total >= 60 ? C.warn : C.danger}`, marginBottom: 16 }}>
       {/* Header row */}
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
         <ScoreBadge score={scores.total} />
+        {filtering && (
+          <div style={{ textAlign: "center", flexShrink: 0 }}>
+            <div style={{ ...sx.label, marginBottom: 2 }}>Full</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: C.textDim, fontFamily: FONT }}>{result.scores.total}</div>
+            <div style={{ fontSize: 10, fontWeight: 700, fontFamily: FONT,
+              color: scoreDelta < 0 ? C.danger : scoreDelta > 0 ? C.accent : C.textDim }}>
+              {scoreDelta > 0 ? "+" : ""}{scoreDelta}
+            </div>
+          </div>
+        )}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 14, color: C.text, fontFamily: FONT_UI, marginBottom: 2 }}>{sessionLabel}</div>
           <div style={{ fontSize: 11, color: C.textMuted, fontFamily: FONT_UI }}>
             {tierLabel} &nbsp;·&nbsp; {nWhispers} whispers &nbsp;·&nbsp; {numStudents} students &nbsp;·&nbsp; {numQueued} queued
           </div>
+          {filtering && (
+            <div style={{ fontSize: 10, color: C.warn, fontFamily: FONT_UI, fontWeight: 700, marginTop: 3 }}>
+              Content view — {nDropped} whisper{nDropped !== 1 ? "s" : ""} excluded
+              {" ("}{[exIdle && "idle chains", exPraise && "praise blasts"].filter(Boolean).join(" + ")}{")"}
+            </div>
+          )}
           {activityFlags.length > 0 && (
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
               {activityFlags.map((f, i) => (
@@ -1710,12 +1777,12 @@ function SessionScoreCard({ result, sessionLabel }) {
       </div>
 
       {/* Score bars */}
-      <ScoreMeter label="Volume (whispers/student)" value={scores.volume} max={20} />
-      <ScoreMeter label="Queue engagement (whispers per 100 queued)" value={scores.queue} max={20} />
-      <ScoreMeter label="Broad coverage (students reached 1+ times)" value={scores.cov1} max={10} />
-      <ScoreMeter label="Deep coverage (students reached 2+ times)" value={scores.cov2} max={10} />
-      <ScoreMeter label="Pacing (median gap between whispers)" value={scores.pacing} max={30} />
-      <ScoreMeter label="Long gap % (% of session in 5+ min gaps)" value={scores.longGap} max={10} />
+      <ScoreMeter label="Volume (whispers/student)" value={scores.volume} max={20} fullValue={filtering ? result.scores.volume : null} />
+      <ScoreMeter label="Queue engagement (whispers per 100 queued)" value={scores.queue} max={20} fullValue={filtering ? result.scores.queue : null} />
+      <ScoreMeter label="Broad coverage (students reached 1+ times)" value={scores.cov1} max={10} fullValue={filtering ? result.scores.cov1 : null} />
+      <ScoreMeter label="Deep coverage (students reached 2+ times)" value={scores.cov2} max={10} fullValue={filtering ? result.scores.cov2 : null} />
+      <ScoreMeter label="Pacing (median gap between whispers)" value={scores.pacing} max={30} fullValue={filtering ? result.scores.pacing : null} />
+      <ScoreMeter label="Long gap % (% of session in 5+ min gaps)" value={scores.longGap} max={10} fullValue={filtering ? result.scores.longGap : null} />
 
       {/* Quality flags section */}
       {flags.length > 0 && (
@@ -1744,16 +1811,17 @@ function SessionScoreCard({ result, sessionLabel }) {
             {[
               { label: "Tier", value: tierLabel },
               { label: "Class Size Band", value: `${result.sizeBandLabel} (${numStudents} stu)` },
-              { label: "Whispers / Student", value: wps },
-              { label: "Whispers / 100 Queued", value: (result.wpq * 100).toFixed(2) },
-              { label: "Broad Coverage (1+)", value: (coverage1plus * 100).toFixed(0) + "%" },
-              { label: "Deep Coverage (2+)", value: (coverage2plus * 100).toFixed(0) + "%" },
-              { label: "Median Gap", value: medianGap + "s" },
-              { label: "Avg Char Count", value: avgChar },
+              { label: "Whispers", value: nWhispers, full: filtering ? result.nWhispers : null },
+              { label: "Whispers / Student", value: wps, full: filtering ? result.wps : null },
+              { label: "Whispers / 100 Queued", value: (view.wpq * 100).toFixed(2), full: filtering ? (result.wpq * 100).toFixed(2) : null },
+              { label: "Broad Coverage (1+)", value: (coverage1plus * 100).toFixed(0) + "%", full: filtering ? (result.coverage1plus * 100).toFixed(0) + "%" : null },
+              { label: "Deep Coverage (2+)", value: (coverage2plus * 100).toFixed(0) + "%", full: filtering ? (result.coverage2plus * 100).toFixed(0) + "%" : null },
+              { label: "Median Gap", value: medianGap + "s", full: filtering ? result.medianGap + "s" : null },
+              { label: "Avg Char Count", value: avgChar, full: filtering ? result.avgChar : null },
               { label: "Max Gap", value: maxGap >= 60 ? `${Math.floor(maxGap/60)}m ${Math.round(maxGap%60)}s` : `${maxGap}s`, warn: maxGap > 300 },
-              { label: "Long Gaps (5+ min)", value: longGapCount, warn: longGapCount >= 1 },
-              { label: "% Session in Long Gaps", value: (longGapPct * 100).toFixed(1) + "%", warn: longGapPct >= 0.20 },
-              { label: "Unique Recipients", value: `${uniqueRecipients} / ${numStudents}` },
+              { label: "Long Gaps (5+ min)", value: longGapCount, warn: longGapCount >= 1, full: filtering ? result.longGapCount : null },
+              { label: "% Session in Long Gaps", value: (longGapPct * 100).toFixed(1) + "%", warn: longGapPct >= 0.20, full: filtering ? (result.longGapPct * 100).toFixed(1) + "%" : null },
+              { label: "Unique Recipients", value: `${uniqueRecipients} / ${numStudents}`, full: filtering ? `${result.uniqueRecipients} / ${numStudents}` : null },
               { label: "Praise Blast (short multi) %", value: (pctPraise * 100).toFixed(1) + "%", warn: pctPraise > 0.12 },
               { label: "Idle Chains", value: nChains, warn: nChains >= 1 },
               { label: "Idle Whisper %", value: (pctIdle * 100).toFixed(1) + "%", warn: pctIdle > 0.1 },
@@ -1761,6 +1829,11 @@ function SessionScoreCard({ result, sessionLabel }) {
               <div key={item.label} style={{ background: C.surface, borderRadius: 6, padding: "7px 10px", border: `1px solid ${C.border}` }}>
                 <div style={{ ...sx.label, marginBottom: 2 }}>{item.label}</div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: item.warn ? C.warn : C.text, fontFamily: FONT }}>{item.value}</div>
+                {item.full != null && String(item.full) !== String(item.value) && (
+                  <div style={{ fontSize: 9, color: C.textDim, fontFamily: FONT_UI, marginTop: 1 }}>
+                    full: {item.full}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -1946,6 +2019,14 @@ function AssistantQualityTab() {
   const [viewMode, setViewMode] = useState("standard"); // "standard" | "growth"
   const [cutoffDate, setCutoffDate] = useState("");
 
+  // Fluff-exclusion toggles. Off by default: the standard is to score the whole log.
+  const [exIdle, setExIdle]     = useState(false);
+  const [exPraise, setExPraise] = useState(false);
+  const filtering = exIdle || exPraise;
+  // Score of a session under the current toggles
+  const sessScore = (s) => pickView(s.result, exIdle, exPraise).scores.total;
+  const sessDim   = (s, key) => pickView(s.result, exIdle, exPraise).scores[key] ?? 0;
+
   // Date range from results
   const dateRange = useMemo(() => {
     if (!results) return { min: "", max: "" };
@@ -1962,12 +2043,12 @@ function AssistantQualityTab() {
 
   const periodScore = (sessions) => {
     if (!sessions.length) return null;
-    return +(sessions.reduce((n, s) => n + s.result.scores.total, 0) / sessions.length).toFixed(1);
+    return +(sessions.reduce((n, s) => n + sessScore(s), 0) / sessions.length).toFixed(1);
   };
 
   const periodDimAvg = (sessions, key) => {
     if (!sessions.length) return null;
-    return +(sessions.reduce((n, s) => n + (s.result.scores[key] ?? 0), 0) / sessions.length).toFixed(1);
+    return +(sessions.reduce((n, s) => n + sessDim(s, key), 0) / sessions.length).toFixed(1);
   };
 
   // Raw underlying stat behind each score dimension (for growth view)
@@ -1983,7 +2064,7 @@ function AssistantQualityTab() {
   const periodRawAvg = (sessions, key) => {
     if (!sessions.length || !DIM_RAW[key]) return null;
     const get = DIM_RAW[key].get;
-    return sessions.reduce((n, s) => n + get(s.result), 0) / sessions.length;
+    return sessions.reduce((n, s) => n + get(pickView(s.result, exIdle, exPraise)), 0) / sessions.length;
   };
 
   const filteredSessions = useMemo(() => {
@@ -1991,10 +2072,10 @@ function AssistantQualityTab() {
     let ss = [...activeData.sessions];
     if (filterTier !== "all") ss = ss.filter(s => s.result.tier === filterTier);
     if (sortBy === "date") ss.sort((a,b) => a.date.localeCompare(b.date));
-    else if (sortBy === "score_asc") ss.sort((a,b) => a.result.scores.total - b.result.scores.total);
-    else ss.sort((a,b) => b.result.scores.total - a.result.scores.total);
+    else if (sortBy === "score_asc") ss.sort((a,b) => sessScore(a) - sessScore(b));
+    else ss.sort((a,b) => sessScore(b) - sessScore(a));
     return ss;
-  }, [activeData, filterTier, sortBy]);
+  }, [activeData, filterTier, sortBy, exIdle, exPraise]);
 
   const ready = zoomData.text && whisperSources.length > 0;
   const allShelfSelected = shelf.length > 0 && shelf.every(item => whisperSources.some(s => s.name === item.label));
@@ -2160,10 +2241,18 @@ function AssistantQualityTab() {
               "whispers","whispers_per_student","whispers_per_100_queued",
               "broad_coverage","deep_coverage","median_gap_sec","long_gap_pct",
               "long_gap_count","max_gap_sec","praise_blast_pct","idle_chains","idle_whisper_pct",
-              "num_students","num_queued","flags"
+              "num_students","num_queued","flags",
+              "view","excluded_whispers",
+              "view_total_score","view_whispers","view_whispers_per_student",
+              "view_whispers_per_100_queued","view_broad_coverage","view_deep_coverage",
+              "view_median_gap_sec","view_long_gap_pct","score_delta"
             ];
+            const viewName = exIdle && exPraise ? "no idle + no praise"
+                           : exIdle ? "no idle chains"
+                           : exPraise ? "no praise blasts" : "full";
             const rows = results.assistants.flatMap(a => a.sessions.map(s => {
               const r = s.result;
+              const v = pickView(r, exIdle, exPraise);
               return [
                 a.assistant, s.date, s.courseId, s.classId, r.tier,
                 r.scores.total, r.scores.volume, r.scores.queue,
@@ -2174,8 +2263,13 @@ function AssistantQualityTab() {
                 r.longGapCount, r.maxGap,
                 (r.pctPraise*100).toFixed(1), r.nChains, (r.pctIdle*100).toFixed(1),
                 r.numStudents, r.numQueued,
-                (r.flags||[]).map(f => `${f.level}: ${f.text}`).join(" | ")
-              ].map(v => `"${String(v ?? "").replace(/"/g,'""')}"`).join(",");
+                (r.flags||[]).map(f => `${f.level}: ${f.text}`).join(" | "),
+                viewName, excludedCount(r, exIdle, exPraise),
+                v.scores.total, v.nWhispers, v.wps, (v.wpq*100).toFixed(2),
+                (v.coverage1plus*100).toFixed(1), (v.coverage2plus*100).toFixed(1),
+                v.medianGap, (v.longGapPct*100).toFixed(1),
+                +(v.scores.total - r.scores.total).toFixed(1)
+              ].map(x => `"${String(x ?? "").replace(/"/g,'""')}"`).join(",");
             }));
             const csv = [headers.join(","), ...rows].join("\n");
             const a = document.createElement("a");
@@ -2193,8 +2287,12 @@ function AssistantQualityTab() {
               "avg_whispers_per_student","avg_whispers_per_100_queued",
               "avg_broad_coverage","avg_deep_coverage","avg_median_gap_sec",
               "avg_long_gap_pct","total_idle_chain_flags","total_praise_blast_flags",
-              "flag_for_observation"
+              "flag_for_observation",
+              "view","avg_view_score","score_drop","total_excluded_whispers"
             ];
+            const viewName2 = exIdle && exPraise ? "no idle + no praise"
+                            : exIdle ? "no idle chains"
+                            : exPraise ? "no praise blasts" : "full";
             const rows = results.assistants.map(a => {
               const ss = a.sessions;
               const avg = key => (ss.reduce((n,s) => n + (s.result.scores[key]??0), 0) / ss.length).toFixed(2);
@@ -2202,6 +2300,7 @@ function AssistantQualityTab() {
               const idleFlags   = ss.reduce((n,s) => n + (s.result.flags?.filter(f=>f.text.includes("idle")).length||0), 0);
               const praiseFlags = ss.reduce((n,s) => n + (s.result.flags?.filter(f=>f.text.includes("praise")).length||0), 0);
               const avgScore = ss.reduce((n,s) => n + s.result.scores.total, 0) / ss.length;
+              const avgViewScore = ss.reduce((n,s2) => n + sessScore(s2), 0) / ss.length;
               return [
                 a.assistant, ss.length, avgScore.toFixed(1),
                 avg("volume"), avg("queue"), avg("cov1"), avg("cov2"),
@@ -2212,7 +2311,10 @@ function AssistantQualityTab() {
                 avgR("medianGap"),
                 (ss.reduce((n,s)=>n+(s.result.longGapPct||0),0)/ss.length*100).toFixed(1),
                 idleFlags, praiseFlags,
-                avgScore < 55 && ss.length >= 5 ? "Yes" : "No"
+                avgScore < 55 && ss.length >= 5 ? "Yes" : "No",
+                viewName2, avgViewScore.toFixed(1),
+                (avgViewScore - avgScore).toFixed(1),
+                ss.reduce((n,s2) => n + excludedCount(s2.result, exIdle, exPraise), 0)
               ].map(v => `"${String(v ?? "").replace(/"/g,'""')}"`).join(",");
             });
             const csv = [headers.join(","), ...rows].join("\n");
@@ -2242,6 +2344,37 @@ function AssistantQualityTab() {
                 </span>
               )}
             </>
+          )}
+        </div>
+
+        {/* Fluff-exclusion toggles */}
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 14, flexWrap: "wrap",
+          padding: "8px 12px", borderRadius: 8,
+          background: filtering ? "#FFF8E6" : C.surfaceAlt,
+          border: `1px solid ${filtering ? "#F5C842" : C.border}` }}>
+          <span style={{ fontSize: 11, color: C.textMuted, fontFamily: FONT_UI, fontWeight: 700 }}>Exclude from scoring:</span>
+          {[
+            { on: exIdle,   set: setExIdle,   label: "Idle chains" },
+            { on: exPraise, set: setExPraise, label: "Praise blasts" },
+          ].map(({ on, set, label }) => (
+            <label key={label} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer",
+              fontSize: 11, fontFamily: FONT_UI, padding: "4px 10px", borderRadius: 6,
+              border: `1px solid ${on ? C.accent : C.border}`,
+              background: on ? C.accentDim : C.surface, userSelect: "none" }}>
+              <input type="checkbox" checked={on} onChange={e => set(e.target.checked)}
+                style={{ accentColor: C.accent, width: 13, height: 13 }} />
+              <span style={{ color: on ? C.accent : C.textMuted, fontWeight: on ? 700 : 400 }}>{label}</span>
+            </label>
+          ))}
+          {filtering ? (
+            <span style={{ fontSize: 10, color: "#7A5C00", fontFamily: FONT_UI, lineHeight: 1.5, flex: "1 1 260px" }}>
+              Showing <strong>content scores</strong>. Benchmarks were built on unfiltered sessions, so read the
+              <strong> size of the drop</strong>, not the filtered number against the 80/60 bands.
+            </span>
+          ) : (
+            <span style={{ fontSize: 10, color: C.textDim, fontFamily: FONT_UI, flex: "1 1 260px" }}>
+              Standard view — scoring the complete whisper log.
+            </span>
           )}
         </div>
 
@@ -2383,8 +2516,11 @@ function AssistantQualityTab() {
               <span style={{ fontFamily: FONT_UI, fontWeight: 700, color: "#ffffff", fontSize: 12 }}>Assistants</span>
             </div>
             <div style={{ overflowY: "auto", maxHeight: 560 }}>
-              {results.assistants.map(a => {
-                const color = a.avgScore >= 80 ? C.accent : a.avgScore >= 60 ? C.warn : C.danger;
+              {[...results.assistants].map(a => ({
+                ...a,
+                viewScore: +(a.sessions.reduce((n,s) => n + sessScore(s), 0) / a.sessions.length).toFixed(1),
+              })).sort((x,y) => y.viewScore - x.viewScore).map(a => {
+                const color = a.viewScore >= 80 ? C.accent : a.viewScore >= 60 ? C.warn : C.danger;
                 const isActive = a.assistant === activeAsst;
                 return (
                   <button key={a.assistant} onClick={() => setActiveAsst(a.assistant)}
@@ -2394,7 +2530,7 @@ function AssistantQualityTab() {
                       borderLeft: isActive ? `3px solid ${C.accent}` : "3px solid transparent" }}>
                     <div style={{ width: 32, height: 32, borderRadius: "50%", background: `${color}18`,
                       border: `2px solid ${color}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color, fontFamily: FONT }}>{Math.round(a.avgScore)}</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color, fontFamily: FONT }}>{Math.round(a.viewScore)}</span>
                     </div>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 11, fontWeight: 700, color: isActive ? C.accent : C.text,
@@ -2403,6 +2539,11 @@ function AssistantQualityTab() {
                       </div>
                       <div style={{ fontSize: 10, color: C.textMuted, fontFamily: FONT_UI }}>
                         {a.sessionCount} session{a.sessionCount !== 1 ? "s" : ""}
+                        {filtering && (
+                          <span style={{ color: C.danger, fontWeight: 700 }}>
+                            {"  "}{(a.viewScore - a.avgScore).toFixed(0)}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </button>
@@ -2416,7 +2557,16 @@ function AssistantQualityTab() {
             <div style={{ flex: "1 1 400px", minWidth: 0 }}>
               {/* Assistant header */}
               <div style={{ ...sx.card, marginBottom: 14, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-                <ScoreBadge score={activeData.avgScore} />
+                <ScoreBadge score={+(activeData.sessions.reduce((n,s) => n + sessScore(s), 0) / activeData.sessions.length).toFixed(1)} />
+                {filtering && (
+                  <div style={{ textAlign: "center", flexShrink: 0 }}>
+                    <div style={{ ...sx.label, marginBottom: 2 }}>Full</div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: C.textDim, fontFamily: FONT }}>{activeData.avgScore}</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: C.danger, fontFamily: FONT }}>
+                      {(activeData.sessions.reduce((n,s) => n + sessScore(s), 0) / activeData.sessions.length - activeData.avgScore).toFixed(1)}
+                    </div>
+                  </div>
+                )}
                 <div>
                   <div style={{ fontSize: 16, fontWeight: 700, color: C.text, fontFamily: FONT_UI }}>{activeData.assistant}</div>
                   <div style={{ fontSize: 11, color: C.textMuted, fontFamily: FONT_UI, marginTop: 2 }}>
@@ -2438,9 +2588,13 @@ function AssistantQualityTab() {
                     { key: "pacing",  label: "Pacing",   max: 30, raw: s => s.result.medianGap?.toFixed(0),  unit: "s median" },
                     { key: "longGap", label: "Long Gap", max: 10, raw: s => ((s.result.longGapPct||0)*100).toFixed(0), unit: "% in gaps" },
                   ].map(({ key, label, max, raw, unit }) => {
-                    const vals = activeData.sessions.map(s => s.result.scores[key] ?? 0);
+                    const vals = activeData.sessions.map(s => sessDim(s, key));
                     const avg = vals.reduce((a,b)=>a+b,0)/vals.length;
-                    const rawVals = activeData.sessions.map(s => parseFloat(raw(s))).filter(v => !isNaN(v));
+                    const fullVals = activeData.sessions.map(s => s.result.scores[key] ?? 0);
+                    const fullAvg = fullVals.reduce((a,b)=>a+b,0)/fullVals.length;
+                    const rawVals = activeData.sessions
+                      .map(s => parseFloat(raw({ result: pickView(s.result, exIdle, exPraise) })))
+                      .filter(v => !isNaN(v));
                     const rawAvg = rawVals.length ? rawVals.reduce((a,b)=>a+b,0)/rawVals.length : null;
                     const color = avg < max * 0.4 ? C.danger : avg < max * 0.7 ? C.warn : C.accent;
                     return (
@@ -2450,6 +2604,11 @@ function AssistantQualityTab() {
                         <div style={{ fontSize: 13, fontWeight: 700, color, fontFamily: FONT }}>
                           {avg.toFixed(1)}<span style={{ fontSize: 10, fontWeight: 400, color: C.textDim }}>/{max}</span>
                         </div>
+                        {filtering && Math.abs(fullAvg - avg) >= 0.05 && (
+                          <div style={{ fontSize: 9, color: C.textDim, fontFamily: FONT_UI }}>
+                            full {fullAvg.toFixed(1)}
+                          </div>
+                        )}
                         {rawAvg !== null && (
                           <div style={{ fontSize: 9, color: C.textMuted, fontFamily: FONT_UI, marginTop: 2, whiteSpace: "nowrap" }}>
                             {key === "volume" ? rawAvg.toFixed(2) :
@@ -2517,6 +2676,8 @@ function AssistantQualityTab() {
                 <SessionScoreCard
                   key={`${s.assistant}-${s.date}-${i}`}
                   result={s.result}
+                  exIdle={exIdle}
+                  exPraise={exPraise}
                   sessionLabel={`${s.date} · ${s.courseId} · Class ${s.classId}${s.lesson ? ` · Lesson ${s.lesson}` : ""}`}
                 />
               ))}
