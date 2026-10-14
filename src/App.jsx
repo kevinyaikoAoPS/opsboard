@@ -1392,32 +1392,34 @@ const COURSE_DURATION = {
   'relativity-camp': 180,
 };
 
-// ── SESSION START TIME CONFIG ──────────────────────────────────────────────
+// -- SESSION START TIME CONFIG ---------------------------------------------
 // Update these if class start times change.
-// Standard start: 19:30. Weekend/special sessions: 16:30 or 13:00.
-// Week 1 (lesson === 1): starts at 19:20 and is 10 min longer than normal.
-// Snap logic: first whisper before 15:00 → 13:00, before 18:00 → 16:30, else → 19:30.
+// Each class is matched to whichever listed start time is CLOSEST to the
+// assistant's first whisper. Ties go to the later start, because assistants
+// log in early more often than they log in late.
+// Week 1 (lesson === 1), for ANY start time: the class starts 10 min earlier and
+// runs 10 min longer, so it ends at the same clock time as a normal session.
 const SESSION_START_TIMES = [
-  { before: 15, snapHour: 13, snapMin: 0 },
-  { before: 18, snapHour: 16, snapMin: 30 },
-  { before: 24, snapHour: 19, snapMin: 30 },
+  { h: 13, m: 0 },    // weekend / special
+  { h: 15, m: 30 },   // Sunday afternoon
+  { h: 16, m: 30 },   // weekend / special
+  { h: 19, m: 30 },   // standard weeknight
 ];
-const WEEK1_START_HOUR = 19, WEEK1_START_MIN = 20, WEEK1_EXTRA_MIN = 10;
-// ──────────────────────────────────────────────────────────────────────────
+const WEEK1_EARLY_MIN = 10, WEEK1_EXTRA_MIN = 10;
+// ---------------------------------------------------------------------------
 
 function getSessionWindow(firstWhisperTs, courseId, isWeek1) {
   const d = new Date(firstWhisperTs);
-  const hour = d.getHours() + d.getMinutes() / 60;
-  let startH, startM;
-  if (isWeek1 && hour >= 18) {
-    startH = WEEK1_START_HOUR; startM = WEEK1_START_MIN;
-  } else {
-    const snap = SESSION_START_TIMES.find(s => hour < s.before);
-    startH = snap.snapHour; startM = snap.snapMin;
+  const mins = d.getHours() * 60 + d.getMinutes();
+  // Snap to the closest listed start time (ties go to the later one)
+  let best = SESSION_START_TIMES[0], bestDist = Infinity;
+  for (const s of SESSION_START_TIMES) {
+    const dist = Math.abs(mins - (s.h * 60 + s.m));
+    if (dist <= bestDist) { best = s; bestDist = dist; }
   }
   const start = new Date(d);
-  start.setHours(startH, startM, 0, 0);
-  const durationMin = getCourseDuration(courseId) + (isWeek1 && hour >= 18 ? WEEK1_EXTRA_MIN : 0);
+  start.setHours(best.h, best.m - (isWeek1 ? WEEK1_EARLY_MIN : 0), 0, 0);
+  const durationMin = getCourseDuration(courseId) + (isWeek1 ? WEEK1_EXTRA_MIN : 0);
   const end = new Date(start.getTime() + durationMin * 60000);
   return { start, end, durationMin };
 }
@@ -2088,10 +2090,10 @@ function AssistantQualityTab() {
         display: "flex", gap: 10, alignItems: "flex-start" }}>
         <span style={{ fontSize: 14, flexShrink: 0 }}>⚙️</span>
         <div style={{ fontSize: 11, color: "#7A5C00", fontFamily: FONT_UI, lineHeight: 1.6 }}>
-          <strong>Session start time config:</strong> Standard classes snap to 19:30.
-          Weekend/special sessions snap to 16:30 (first whisper before 18:00) or 13:00 (before 15:00).
-          Week 1 (lesson = 1, evening) starts at 19:20 and runs 10 min longer.
-          If start times change, update <code style={{ fontFamily: FONT, background: "#FFF0BE", padding: "1px 4px", borderRadius: 3 }}>SESSION_START_TIMES</code> and <code style={{ fontFamily: FONT, background: "#FFF0BE", padding: "1px 4px", borderRadius: 3 }}>WEEK1_START_HOUR/MIN</code> in the code.
+          <strong>Session start time config:</strong> Each class is matched to the closest of these start times
+          (1:00, 3:30, 4:30, or 7:30 PM) based on the first whisper.
+          Week 1 (lesson = 1) starts 10 min earlier and runs 10 min longer, at any start time.
+          If start times change, update <code style={{ fontFamily: FONT, background: "#FFF0BE", padding: "1px 4px", borderRadius: 3 }}>SESSION_START_TIMES</code> and <code style={{ fontFamily: FONT, background: "#FFF0BE", padding: "1px 4px", borderRadius: 3 }}>WEEK1_EARLY_MIN / WEEK1_EXTRA_MIN</code> in the code.
         </div>
       </div>
 
